@@ -3,7 +3,7 @@ import numpy as np
 from scipy import stats
 import collections
 
-def estimate_p (umi_counts, nsamp=1000, nthin=1, nburn=200):
+def deduplicate_counts (umi_counts, nsamp=1000, nthin=1, nburn=200):
 
     n = len(umi_counts)
 
@@ -85,10 +85,3 @@ def estimate_p (umi_counts, nsamp=1000, nthin=1, nburn=200):
         umi_true[umi_counts.keys()[i]] = int(np.floor(median[i] * data[i]))
 
     return umi_true
-
-
-def deduplicate_counts (umi_counts):
-    for key in umi_counts:
-        if umi_counts[key] > 0: umi_counts[key] = 1
-    return umi_counts
-
