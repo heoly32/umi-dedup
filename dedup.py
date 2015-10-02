@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 import collections, argparse, pysam, sys
-from lib import parse_sam, umi_data, naive_estimate
+from lib import parse_sam, umi_data, naive_estimate, uniform_estimate
 
 # parse arguments
 parser = argparse.ArgumentParser(description = 'Read a coordinate-sorted SAM file with labeled UMIs and mark or remove duplicates due to PCR or optical cloning, but not duplicates present in the original library. When PCR/optical duplicates are detected, the reads with the highest total base qualities are marked as non-duplicate - note we do not discriminate on MAPQ, or other alignment features, because this would bias against polymorphisms.')
 parser.add_argument('-r', '--remove', action = 'store_true', help = 'remove PCR/optical duplicates instead of marking them')
 #parser.add_argument('-d', '--dist', action = 'store', help = 'maximum pixel distance for optical duplicates (Euclidean); set to 0 to skip optical duplicate detection', type = int, default = 100)
 parser.add_argument('-u', '--umi_table', action = 'store', help = 'table of UMI sequences and prior frequencies')
+parser.add_argument('-a', '--algorithm', action = 'store', choices = ['naive', 'uniform'], default = 'naive', help = 'choose the algorithm for identification of duplicates')
 parser.add_argument('infile', action = 'store', nargs = '?', default = '-') # actually this filename should be required since we can't use a stream
 parser.add_argument('outfile', action = 'store', nargs = '?', default = '-')
 args = parser.parse_args()
@@ -40,8 +41,12 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 		umi_counts = umi_data.make_umi_counts(umi_totals.keys(), (len(this_pos['reads'][umi]) if umi in this_pos['reads'] else 0 for umi in umi_totals.keys()))
 		
 		# P ESTIMATION / DEDUPLICATION GOES HERE
-		dedup_counts = naive_estimate.deduplicate_counts(umi_counts)
+		if args.algorithm == 'naive':
+		    dedup_counts = naive_estimate.deduplicate_counts(umi_counts)
 		
+		if args.algorithm == 'uniform':
+		    dedup_counts = uniform_estimate.deduplicate_counts(umi_counts)
+
 		umi_data.mark_duplicates(this_pos['reads'], dedup_counts)
 		this_pos['deduplicated'] = True
 	
