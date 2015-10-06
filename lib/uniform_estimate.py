@@ -82,6 +82,6 @@ def deduplicate_counts (umi_counts, nsamp=1000, nthin=1, nburn=200):
     # Return ordered dictionary with estimated number of true molecules
     umi_true = collections.OrderedDict()
     for i in range(n):
-        umi_true[umi_counts.keys()[i]] = int(np.ceiling(median[i] * data[i]))
+        umi_true[umi_counts.keys()[i]] = int(np.ceil(median[i] * data[i]))
 
     return umi_true
