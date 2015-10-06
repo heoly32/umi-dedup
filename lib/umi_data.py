@@ -1,8 +1,8 @@
 from __future__ import division
 import collections, itertools, re, pysam, parse_sam
 
-alphabet = 'ACGT'
-re_exclusion = re.compile('[^%s]' % alphabet)
+alphabet = 'ACGT' # expected characters in UMI sequences
+re_exclusion = re.compile('[^%s]' % alphabet) # match any unexpected character (like N)
 
 def make_umi_list (length, alphabet = alphabet):
 	return (''.join(umi) for umi in itertools.product(alphabet, repeat = length))
@@ -29,7 +29,7 @@ def read_umi_counts_from_table (in_file):
 	return result
 
 def read_umi_counts_from_reads (in_file): # in_file should be a pysam.Samfile or a Bio.SeqIO.parse in 'fastq' format, or at least contain an Illumina-formatted name in either 'query_name' or 'id'
-	umi_totals, umi_length = None, None
+	umi_totals = umi_length = None
 	for read in in_file:
 		try:
 			read_name = read.query_name
@@ -48,17 +48,14 @@ def read_umi_counts_from_reads (in_file): # in_file should be a pysam.Samfile or
 	if umi_totals is None: raise RuntimeError('no valid reads detected')
 	return umi_totals
 
-def mark_duplicates (reads, target_umi_counts):
+def mark_duplicates (reads, n):
 	'''
-	assumes 'reads' is a dict where each key is a UMI and each value is a list of pysam.AlignedSegment objects (pointers), all marked as is_duplicate = False
-	assumes 'target_umi_counts' is a dict where each key is a UMI and each value is the number of non-duplicate reads
-	so if len(reads[umi]) == 5 and target_umi_counts[umi] == 3, two reads from this UMI will be marked as duplicates
+	mark 'n' reads from 'reads' as duplicates
 	reads to mark as the duplicates are chosen by lowest base quality
 	'''
-	for umi in reads.keys():
-		assert len(reads[umi]) >= target_umi_counts[umi]
-		if len(reads[umi]) > target_umi_counts[umi]:
-			sorted_reads = sorted(reads[umi], key = parse_sam.get_quality)
-			for i in range(len(reads[umi]) - target_umi_counts[umi]):
-				sorted_reads[i].is_duplicate = True
+	assert len(reads) >= n
+	if n > 0:
+		sorted_reads = sorted(reads, key = parse_sam.get_quality)
+		for i in range(n): sorted_reads[i].is_duplicate = True
+	return reads
 
