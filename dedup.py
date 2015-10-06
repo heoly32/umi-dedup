@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 import collections, argparse, pysam, sys
-from lib import parse_sam, umi_data, naive_estimate
+from lib import parse_sam, umi_data, optical_duplicates, naive_estimate
 
 # parse arguments
 parser = argparse.ArgumentParser(description = 'Read a coordinate-sorted BAM file with labeled UMIs and mark or remove duplicates due to PCR or optical cloning, but not duplicates present in the original library. When PCR/optical duplicates are detected, the reads with the highest total base qualities are marked as non-duplicate - note we do not discriminate on MAPQ, or other alignment features, because this would bias against polymorphisms.')
 parser.add_argument('-r', '--remove', action = 'store_true', help = 'remove PCR/optical duplicates instead of marking them')
-#parser.add_argument('-d', '--dist', action = 'store', help = 'maximum pixel distance for optical duplicates (Euclidean); set to 0 to skip optical duplicate detection', type = int, default = 100)
+parser.add_argument('-d', '--dist', action = 'store', help = 'maximum pixel distance for optical duplicates (Euclidean); set to 0 to skip optical duplicate detection', type = int, default = 100)
 parser.add_argument('-u', '--umi_table', action = 'store', help = 'table of UMI sequences and prior frequencies')
 parser.add_argument('in_file', action = 'store', nargs = '?', default = '-')
 parser.add_argument('out_file', action = 'store', nargs = '?', default = '-')
@@ -35,17 +35,33 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 	
 	# deduplicate reads at this position
 	if not this_pos['deduplicated']:
+		umi_reads = this_pos['reads']
 		
-		umi_counts = umi_data.make_umi_counts(umi_totals.keys(), (len(this_pos['reads'][umi]) if umi in this_pos['reads'] else 0 for umi in umi_totals.keys()))
+		# first pass: mark optical duplicates
+		if args.dist != 0:
+			for reads in umi_reads.values():
+				for opt_dup in optical_duplicates.get_optical_duplicates(reads, args.dist):
+					for read in umi_data.mark_duplicates(opt_dup, len(opt_dup) - 1):
+						if read.is_duplicate: reads.remove(read) # remove duplicate reads from the tracker so they won't be considered later (they're still in the read buffer)
+					read_counter['optical duplicate'] += len(opt_dup) - 1
+		
+		# second pass: mark PCR duplicates
+		umi_counts = umi_data.make_umi_counts(umi_totals.keys())
+		for umi, reads in umi_reads.items(): umi_counts[umi] = len(reads)
 		
 		# P ESTIMATION / DEDUPLICATION GOES HERE
 		dedup_counts = naive_estimate.deduplicate_counts(umi_counts)
 		
-		umi_data.mark_duplicates(this_pos['reads'], dedup_counts)
+		for umi, reads in umi_reads.items():
+			n_dup = len(reads) - dedup_counts[umi]
+			umi_data.mark_duplicates(reads, n_dup)
+			read_counter['PCR duplicate'] += n_dup
+		
+		read_counter['unique'] += sum(dedup_counts.values())
+
 		this_pos['deduplicated'] = True
 	
 	# output read
-	read_counter['duplicate' if read.is_duplicate else 'nonduplicate'] += 1
 	if not (args.remove and read.is_duplicate): out_bam.write(read)
 	
 	# prune the tracker
@@ -66,12 +82,12 @@ for read in in_bam:
 	if not parse_sam.read_is_good(read): continue
 	umi = umi_data.get_umi(read.query_name)
 	if not umi_data.umi_is_good(umi): continue
+	read.is_duplicate = False # not sure how to handle reads that have already been deduplicated somehow, so just ignore previous annotations
 	start_pos = parse_sam.get_start_pos(read)
 	read_counter['read'] += 1
 	
 	# advance the buffer
-	while read_buffer and (read_buffer[0].reference_id < read.reference_id or parse_sam.get_start_pos(read_buffer[0]) < read.reference_start): # if the top of the buffer is at a position that's definitely not going to get any more hits
-		pop_buffer()
+	while read_buffer and (read_buffer[0].reference_id < read.reference_id or parse_sam.get_start_pos(read_buffer[0]) < read.reference_start): pop_buffer() # pop the top read if it's at a position that's definitely not going to get any more hits
 	
 	# add read to buffer and tracking data structure	
 	read_buffer.extend([read])
@@ -93,5 +109,6 @@ if args.umi_table is None:
 	assert sum(umi_totals.values()) == read_counter['read']
 else:
 	sys.stderr.write('%i\tusable alignments read\n' % read_counter['read'])
-sys.stderr.write('%i\tunduplicated\n%i\tduplicates\n' % (read_counter['nonduplicate'], read_counter['duplicate']))
+if args.dist != 0: sys.stderr.write('%i\toptical duplicate\n' % read_counter['optical duplicate'])
+sys.stderr.write('%i\tPCR duplicate\n%i\tunique\n' % (read_counter['PCR duplicate'], read_counter['unique']))
 
