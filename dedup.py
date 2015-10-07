@@ -5,11 +5,16 @@ from lib import parse_sam, umi_data, optical_duplicates, naive_estimate
 
 # parse arguments
 parser = argparse.ArgumentParser(description = 'Read a coordinate-sorted BAM file with labeled UMIs and mark or remove duplicates due to PCR or optical cloning, but not duplicates present in the original library. When PCR/optical duplicates are detected, the reads with the highest total base qualities are marked as non-duplicate - note we do not discriminate on MAPQ, or other alignment features, because this would bias against polymorphisms.')
-parser.add_argument('-r', '--remove', action = 'store_true', help = 'remove PCR/optical duplicates instead of marking them')
-parser.add_argument('-d', '--dist', action = 'store', help = 'maximum pixel distance for optical duplicates (Euclidean); set to 0 to skip optical duplicate detection', type = int, default = 100)
-parser.add_argument('-u', '--umi_table', action = 'store', help = 'table of UMI sequences and prior frequencies')
-parser.add_argument('in_file', action = 'store', nargs = '?', default = '-')
-parser.add_argument('out_file', action = 'store', nargs = '?', default = '-')
+parser_data = parser.add_argument_group('data files')
+parser_format = parser.add_argument_group('format')
+parser_alg = parser.add_argument_group('algorithm')
+parser_perf = parser.add_argument_group('performance testing')
+parser_format.add_argument('-r', '--remove', action = 'store_true', help = 'remove PCR/optical duplicates instead of marking them')
+parser_alg.add_argument('-d', '--dist', action = 'store', type = int, default = 100, help = 'maximum pixel distance for optical duplicates (Euclidean); set to 0 to skip optical duplicate detection')
+parser_perf.add_argument('--truncate_umi', action = 'store', type = int, default = None, help = 'truncate UMI sequences to this length')
+parser_data.add_argument('in_file', action = 'store', nargs = '?', default = '-', help = 'input BAM')
+parser_data.add_argument('out_file', action = 'store', nargs = '?', default = '-', help = 'output BAM')
+parser_data.add_argument('-u', '--umi_table', action = 'store', help = 'table of UMI sequences and (optional) prior frequencies')
 args = parser.parse_args()
 if args.umi_table is None and args.in_file == '-':
 	raise RuntimeError('you must provide a UMI table filename, a BAM filename, or both')
@@ -30,7 +35,7 @@ read_buffer = collections.deque()
 pos_tracker = ({}, {}) # data structure containing observed UMIs and corresponding tracking information; top level is by strand (0 = forward, 1 = reverse), then next level is by 5' read start position (dict since these will be sparse and are only looked up by identity), then at each position the next level is by UMI (dict), and that contains a variety of data; there is no level for reference ID because there is no reason to store more than one chromosome at a time
 def pop_buffer(): # pop the oldest read off the buffer (into the output), but first make sure its position has been deduplicated
 	read = read_buffer.popleft()
-	start_pos, umi = parse_sam.get_start_pos(read), umi_data.get_umi(read.query_name)
+	start_pos, umi = parse_sam.get_start_pos(read), umi_data.get_umi(read.query_name, args.truncate_umi)
 	this_pos = pos_tracker[read.is_reverse][start_pos]
 	
 	# deduplicate reads at this position
@@ -70,9 +75,9 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 
 # first pass through the input: get total UMI counts (or use table instead, if provided)
 try:
-	umi_totals = umi_data.read_umi_counts_from_table(open(args.umi_table))
+	umi_totals = umi_data.read_umi_counts_from_table(open(args.umi_table), args.truncate_umi)
 except TypeError:
-	umi_totals = umi_data.read_umi_counts_from_reads(in_bam)
+	umi_totals = umi_data.read_umi_counts_from_reads(in_bam, args.truncate_umi)
 	sys.stderr.write('%i\tusable alignments read\n' % sum(umi_totals.values()))
 	in_bam.reset()
 
@@ -80,7 +85,7 @@ except TypeError:
 # second pass through the input
 for read in in_bam:
 	if not parse_sam.read_is_good(read): continue
-	umi = umi_data.get_umi(read.query_name)
+	umi = umi_data.get_umi(read.query_name, args.truncate_umi)
 	if not umi_data.umi_is_good(umi): continue
 	read.is_duplicate = False # not sure how to handle reads that have already been deduplicated somehow, so just ignore previous annotations
 	start_pos = parse_sam.get_start_pos(read)

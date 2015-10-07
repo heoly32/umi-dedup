@@ -2,13 +2,16 @@
 
 import argparse, sys, collections, Bio.SeqIO
 
+# parse arguments
 parser = argparse.ArgumentParser(description = 'Read a FASTQ file containing UMIs prepended to alignable sequences, and output the same file with the UMIs moved into the read names. Report the base frequencies.')
-parser.add_argument('-b', '--before', action = 'store', type = int, default = 0, help = 'number of bases before UMI to discard')
-parser.add_argument('-a', '--after', action = 'store', type = int, default = 0, help = 'number of bases after UMI to discard')
-parser.add_argument('-m', '--mask', action = 'append', type = int, help = 'position within UMI to discard (can be used multiple times)')
-parser.add_argument('umi_length', action = 'store', type = int, help = 'length of UMI sequence (these bases become the UMI label)')
-parser.add_argument('in_file', action = 'store', nargs = '?', type = argparse.FileType('r'), default = sys.stdin)
-parser.add_argument('out_file', action = 'store', nargs = '?', type = argparse.FileType('w'), default = sys.stdout)
+parser_data = parser.add_argument_group('data files')
+parser_umi = parser.add_argument_group('UMI format')
+parser_umi.add_argument('umi_length', action = 'store', type = int, help = 'length of UMI sequence (these bases become the UMI label)')
+parser_umi.add_argument('-b', '--before', action = 'store', type = int, default = 0, help = 'number of bases before UMI to discard')
+parser_umi.add_argument('-a', '--after', action = 'store', type = int, default = 0, help = 'number of bases after UMI to discard')
+parser_umi.add_argument('-m', '--mask', action = 'append', type = int, help = 'position within UMI to discard (can be used multiple times)')
+parser_data.add_argument('in_file', action = 'store', nargs = '?', type = argparse.FileType('r'), default = sys.stdin, help = 'input FASTQ')
+parser_data.add_argument('out_file', action = 'store', nargs = '?', type = argparse.FileType('w'), default = sys.stdout, help = 'output FASTQ')
 args = parser.parse_args()
 
 read_counter = 0

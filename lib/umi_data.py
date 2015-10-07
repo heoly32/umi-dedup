@@ -4,6 +4,9 @@ import collections, itertools, re, pysam, parse_sam
 alphabet = 'ACGT' # expected characters in UMI sequences
 re_exclusion = re.compile('[^%s]' % alphabet) # match any unexpected character (like N)
 
+def umi_is_good (umi):
+	return (re_exclusion.search(umi) is None)
+
 def make_umi_list (length, alphabet = alphabet):
 	return (''.join(umi) for umi in itertools.product(alphabet, repeat = length))
 
@@ -13,34 +16,41 @@ def make_umi_counts (umi_list, counts = None):
 	except TypeError:
 		return collections.OrderedDict((umi, 0) for umi in umi_list)
 
-def get_umi (read_name): # Illumina-specific
+def get_umi (read_name, truncate = None): # Illumina-specific
 	if read_name.count(':') != 7: raise RuntimeError('read name %s does not contain UMI in expected Casava 1.8+ / bcl2fastq 2.17+ format' % read_name)
-	return read_name.partition(' ')[0].rpartition(':')[2]
+	umi = read_name.partition(' ')[0].rpartition(':')[2] # don't include the space and the stuff after it, if present
+	return (umi if truncate is None else umi[:truncate])
 
-def umi_is_good (umi):
-	return (len(umi) > 0 and re_exclusion.search(umi) is None)
-
-def read_umi_counts_from_table (in_file):
+def read_umi_counts_from_table (in_file, truncate = None):
 	result = collections.OrderedDict()
 	for line in in_file:
 		split_line = line.split()
-		if len(split_line) >= 2: result[split_line[0]] = int(split_line[1])
-	if len(result) == 0: raise RuntimeError('bad format in UMI table')
+		try:
+			umi = split_line[0]
+			if truncate is not None: umi = umi[:truncate]
+			try:
+				result[umi] = int(split_line[1])
+			except IndexError: # no count given
+				result[umi] = 0
+		except IndexError: # empty line
+			pass
+	if not result: raise RuntimeError('bad format in UMI table')
 	return result
 
-def read_umi_counts_from_reads (in_file): # in_file should be a pysam.Samfile or a Bio.SeqIO.parse in 'fastq' format, or at least contain an Illumina-formatted name in either 'query_name' or 'id'
+def read_umi_counts_from_reads (in_file, truncate = None): # in_file should be a pysam.Samfile or a Bio.SeqIO.parse in 'fastq' format, or at least contain an Illumina-formatted name in either 'query_name' or 'id'
 	umi_totals = umi_length = None
 	for read in in_file:
 		try:
 			read_name = read.query_name
 		except AttributeError:
 			read_name = read.id # EAFP; if this isn't found either, AttributeError is still raised
-		umi = get_umi(read_name)
-		if umi_length is None:
-			umi_length = len(umi)
-			umi_totals = make_umi_counts(make_umi_list(umi_length))
-		elif len(umi) != umi_length:
-			raise RuntimeError('different UMI length in read ' + read_name)
+		umi = get_umi(read_name, truncate)
+		if len(umi) != umi_length:		
+			if umi_length is None:
+				umi_length = len(umi)
+				umi_totals = make_umi_counts(make_umi_list(umi_length))
+			else:
+				raise RuntimeError('different UMI length in read ' + read_name)
 		try:
 			umi_totals[umi] += 1
 		except KeyError:
