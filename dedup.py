@@ -44,11 +44,12 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 		
 		# first pass: mark optical duplicates
 		if args.dist != 0:
-			for reads in umi_reads.values():
-				for opt_dup in optical_duplicates.get_optical_duplicates(reads, args.dist):
-					for read in umi_data.mark_duplicates(opt_dup, len(opt_dup) - 1):
-						if read.is_duplicate: reads.remove(read) # remove duplicate reads from the tracker so they won't be considered later (they're still in the read buffer)
-					read_counter['optical duplicate'] += len(opt_dup) - 1
+			all_reads = [] # combine reads from all UMIs so optical duplicates aren't required to have matching UMIs (maybe there was a sequencing error)
+			for reads in umi_reads.values(): all_reads += reads
+			for opt_dup in optical_duplicates.get_optical_duplicates(all_reads, args.dist):
+				for dup_read in umi_data.mark_duplicates(opt_dup, len(opt_dup) - 1):
+					if dup_read.is_duplicate: umi_reads[umi_data.get_umi(dup_read.query_name, args.truncate_umi)].remove(dup_read) # remove duplicate reads from the tracker so they won't be considered later (they're still in the read buffer)
+				read_counter['optical duplicate'] += len(opt_dup) - 1
 		
 		# second pass: mark PCR duplicates
 		umi_counts = umi_data.make_umi_counts(umi_totals.keys())
