@@ -50,7 +50,8 @@ for read in Bio.SeqIO.parse(args.in_file, 'fastq'):
 	# output read
 	args.out_file.write(read.format('fastq'))
 	read_counter += 1
-
+args.in_file.close()
+args.out_file.close()
 
 # generate summary statistics
 sys.stderr.write('%i reads processed\n\n' % read_counter)

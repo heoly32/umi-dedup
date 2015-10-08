@@ -14,7 +14,7 @@ parser_alg.add_argument('-d', '--dist', action = 'store', type = int, default = 
 parser_perf.add_argument('--truncate_umi', action = 'store', type = int, default = None, help = 'truncate UMI sequences to this length')
 parser_data.add_argument('in_file', action = 'store', nargs = '?', default = '-', help = 'input BAM')
 parser_data.add_argument('out_file', action = 'store', nargs = '?', default = '-', help = 'output BAM')
-parser_data.add_argument('-u', '--umi_table', action = 'store', help = 'table of UMI sequences and (optional) prior frequencies')
+parser_data.add_argument('-u', '--umi_table', action = 'store', type = argparse.FileType('r'), help = 'table of UMI sequences and (optional) prior frequencies')
 args = parser.parse_args()
 if args.umi_table is None and args.in_file == '-':
 	raise RuntimeError('you must provide a UMI table filename, a BAM filename, or both')
@@ -76,7 +76,8 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 
 # first pass through the input: get total UMI counts (or use table instead, if provided)
 try:
-	umi_totals = umi_data.read_umi_counts_from_table(open(args.umi_table), args.truncate_umi)
+	umi_totals = umi_data.read_umi_counts_from_table(args.umi_table, args.truncate_umi)
+	args.umi_table.close()
 except TypeError:
 	umi_totals = umi_data.read_umi_counts_from_reads(in_bam, args.truncate_umi)
 	sys.stderr.write('%i\tusable alignments read\n' % sum(umi_totals.values()))
@@ -105,10 +106,11 @@ for read in in_bam:
 		except KeyError: # first time we've since this position+strand
 			pos_tracker[read.is_reverse][start_pos] = {'reads': {umi: [read]}, 'deduplicated': False}
 	pos_tracker[read.is_reverse][start_pos]['last read'] = read
+in_bam.close()
 
 # flush the buffer
 while read_buffer: pop_buffer()
-
+out_bam.close()
 
 # generate summary statistics
 if args.umi_table is None:
