@@ -15,9 +15,11 @@ parser_data.add_argument('out_file', action = 'store', nargs = '?', type = argpa
 args = parser.parse_args()
 
 umi_totals = umi_data.read_umi_counts_from_reads((Bio.SeqIO.parse(args.in_file, 'fastq') if args.fastq else pysam.Samfile('-' if args.in_file is sys.stdin else args.in_file, 'rb')), args.truncate_umi)
+args.in_file.close()
 
 # generate summary statistics
 sys.stderr.write('%i UMIs read\n' % sum(umi_totals.values()))
 for umi, count in umi_totals.items():
 	args.out_file.write('%s\t%i\n' % (umi, count))
+args.out_file.close()
 
