@@ -56,11 +56,11 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 		for umi, reads in umi_reads.items(): umi_counts[umi] = len(reads)
 		
 		# P ESTIMATION / DEDUPLICATION GOES HERE
-		if args.algorithm == 'naive':
-		    dedup_counts = naive_estimate.deduplicate_counts(umi_counts)
+		# if args.algorithm == 'naive':
+	        dedup_counts = naive_estimate.deduplicate_counts(umi_counts)
 		
-		if args.algorithm == 'uniform':
-		    dedup_counts = uniform_estimate.deduplicate_counts(umi_counts)
+		# if args.algorithm == 'uniform':
+		#     dedup_counts = uniform_estimate.deduplicate_counts(umi_counts)
 
 		for umi, reads in umi_reads.items():
 			n_dup = len(reads) - dedup_counts[umi]
