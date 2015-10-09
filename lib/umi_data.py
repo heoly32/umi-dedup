@@ -1,50 +1,71 @@
 from __future__ import division
-import collections, itertools, parse_sam
+import collections, itertools, re, pysam, parse_sam
 
-def make_umi_list (length, alphabet = 'ACGT'):
+alphabet = 'ACGT' # expected characters in UMI sequences
+re_exclusion = re.compile('[^%s]' % alphabet) # match any unexpected character (like N)
+
+def umi_is_good (umi):
+	return (re_exclusion.search(umi) is None)
+
+def make_umi_list (length, alphabet = alphabet):
 	return (''.join(umi) for umi in itertools.product(alphabet, repeat = length))
 
 def make_umi_counts (umi_list, counts = None):
-	if counts:
+	try:
 		return collections.OrderedDict((umi, count) for umi, count in zip(umi_list, counts))
-	else:
+	except TypeError:
 		return collections.OrderedDict((umi, 0) for umi in umi_list)
 
-def read_umi_counts_from_table (infile):
+def get_umi (read_name, truncate = None): # Illumina-specific
+	if read_name.count(':') != 7: raise RuntimeError('read name %s does not contain UMI in expected Casava 1.8+ / bcl2fastq 2.17+ format' % read_name)
+	umi = read_name.partition(' ')[0].rpartition(':')[2] # don't include the space and the stuff after it, if present
+	return (umi if truncate is None else umi[:truncate])
+
+def read_umi_counts_from_table (in_file, truncate = None):
 	result = collections.OrderedDict()
-	for line in infile:
+	for line in in_file:
 		split_line = line.split()
-		if len(split_line) >= 2: result[split_line[0]] = int(split_line[1])
-	if len(result) == 0: raise RuntimeError('bad format in UMI table')
+		try:
+			umi = split_line[0]
+			if truncate is not None: umi = umi[:truncate]
+			try:
+				result[umi] = int(split_line[1])
+			except IndexError: # no count given
+				result[umi] = 0
+		except IndexError: # empty line
+			pass
+	if not result: raise RuntimeError('bad format in UMI table')
 	return result
 
-def read_umi_counts_from_sam (infile):
-	umi_totals = None
-	umi_length = 0
-	file_pos = infile.tell() # save position so we can return there afterward
-	infile.reset()
-	for read in infile:
-		umi = parse_sam.get_umi(read)
-		if not umi_length:
-			umi_length = len(umi)
-			umi_totals = make_umi_counts(make_umi_list(umi_length))
-		elif len(umi) != umi_length:
-			raise RuntimeError('different UMI length in read ' + read.query_name)
-		if umi in umi_totals: umi_totals[umi] += 1 # exclude bad UMIs (containing N)
-	infile.seek(file_pos)
+def read_umi_counts_from_reads (in_file, truncate = None): # in_file should be a pysam.Samfile or a Bio.SeqIO.parse in 'fastq' format, or at least contain an Illumina-formatted name in either 'query_name' or 'id'
+	umi_totals = umi_length = None
+	for read in in_file:
+		try:
+			read_name = read.query_name
+		except AttributeError:
+			read_name = read.id # EAFP; if this isn't found either, AttributeError is still raised
+		umi = get_umi(read_name, truncate)
+		if len(umi) != umi_length:		
+			if umi_length is None:
+				umi_length = len(umi)
+				umi_totals = make_umi_counts(make_umi_list(umi_length))
+			else:
+				raise RuntimeError('different UMI length in read ' + read_name)
+		try:
+			umi_totals[umi] += 1
+		except KeyError:
+			pass # exclude bad UMIs
+	if umi_totals is None: raise RuntimeError('no valid reads detected')
 	return umi_totals
 
-def mark_duplicates (reads, target_umi_counts):
+def mark_duplicates (reads, n):
 	'''
-	assumes 'reads' is a dict where each key is a UMI and each value is a list of pysam.AlignedSegment objects (pointers), all marked as is_duplicate = False
-	assumes 'target_umi_counts' is a dict where each key is a UMI and each value is the number of non-duplicate reads
-	so if len(reads[umi]) == 5 and target_umi_counts[umi] == 3, two reads from this UMI will be marked as duplicates
+	mark 'n' reads from 'reads' as duplicates
 	reads to mark as the duplicates are chosen by lowest base quality
 	'''
-	for umi in reads.keys():
-		assert len(reads[umi]) >= target_umi_counts[umi]
-		if len(reads[umi]) > target_umi_counts[umi]:
-			sorted_reads = sorted(reads[umi], key = parse_sam.get_quality)
-			for i in range(len(reads[umi]) - target_umi_counts[umi]):
-				sorted_reads[i].is_duplicate = True
+	assert len(reads) >= n
+	if n > 0:
+		sorted_reads = sorted(reads, key = parse_sam.get_quality)
+		for i in range(n): sorted_reads[i].is_duplicate = True
+	return reads
 
