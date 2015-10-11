@@ -6,7 +6,11 @@ import random
 
 def deduplicate_counts (umi_counts, nsamp=1000, nthin=1, nburn=200):
 
-    data = umi_counts.values()
+    # Remove zeros from data, to shorten the vector
+    data = []
+    for value in umi_counts.values():
+        if value > 0:
+            data.append(value)
 
     n = len(data)
     N = sum(data)
@@ -74,10 +78,15 @@ def deduplicate_counts (umi_counts, nsamp=1000, nthin=1, nburn=200):
     for i in range(n):
         median_list[i] = computeMedian(p_post_flat[i::n])
 
-        # Return ordered dictionary with estimated number of true molecules
+    # Return ordered dictionary with estimated number of true molecules
     umi_true = collections.OrderedDict()
-    for i in range(n):
-        umi_true[umi_counts.keys()[i]] = int(np.ceil(median_list[i] * data[i]))
+    index = 0
+    for key, value in umi_counts.items():
+        if value == 0:
+            umi_true[key] = value
+        else:
+            umi_true[key] = int(np.ceil(median_list[index] * data[index]))
+            index += 1
 
     return umi_true
 
