@@ -25,7 +25,7 @@ def deduplicate_counts (umi_counts, nsamp=1000, nthin=1, nburn=200):
     S_alphas = S_prior
     S_old = np.random.dirichlet(S_alphas)
     Y_old = [0] * n
-    Y_new = np.full((n,), 0)
+    Y_new = [0] * n
     p_old = [0] * n
     p_new = [0] * n
 
