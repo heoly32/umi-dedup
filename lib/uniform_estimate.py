@@ -1,8 +1,6 @@
 from __future__ import division
 import numpy as np
-from scipy import stats
 import collections
-import random
 
 def deduplicate_counts (umi_counts, nsamp=1000, nthin=1, nburn=200):
 
