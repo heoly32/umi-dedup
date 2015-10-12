@@ -92,11 +92,11 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 
 
 # first pass through the input: get total UMI counts (or use table instead, if provided)
-if args.algorithm == 'bayes':
-	try:
-		umi_totals = umi_data.read_umi_counts_from_table(args.umi_table, args.truncate_umi)
-		args.umi_table.close()
-	except TypeError:
+try:
+	umi_totals = umi_data.read_umi_counts_from_table(args.umi_table, args.truncate_umi)
+	args.umi_table.close()
+except TypeError:
+	if args.algorithm == 'bayes':
 		umi_totals = umi_data.read_umi_counts_from_reads(in_bam, args.truncate_umi)
 		sys.stderr.write('%i\tusable alignments read\n' % sum(umi_totals.values()))
 		in_bam.reset()
