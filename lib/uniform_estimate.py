@@ -3,7 +3,11 @@ import numpy as np
 import collections
 import MCMC_algorithm
 
-def deduplicate_counts (umi_counts, nsamp=1000, nthin=1, nburn=200):
+DEFAULT_NSAMP = 1000
+DEFAULT_NTHIN = 1
+DEFAULT_NBURN = 200
+
+def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN):
 
     # Remove zeros from data, to shorten the vector
     data = []
