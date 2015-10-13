@@ -53,7 +53,11 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 			for reads in umi_reads.values(): all_reads += reads
 			for opt_dup in optical_duplicates.get_optical_duplicates(all_reads, args.dist):
 				for dup_read in umi_data.mark_duplicates(opt_dup, len(opt_dup) - 1):
-					if dup_read.is_duplicate: umi_reads[umi_data.get_umi(dup_read.query_name, args.truncate_umi)].remove(dup_read) # remove duplicate reads from the tracker so they won't be considered later (they're still in the read buffer)
+					# remove duplicate reads from the tracker so they won't be considered later (they're still in the read buffer)
+					if dup_read.is_duplicate: 
+						umi = umi_data.get_umi(dup_read.query_name, args.truncate_umi)
+						umi_reads[umi].remove(dup_read)
+						if not umi_reads[umi]: del umi_reads[umi]
 				read_counter['optical duplicate'] += len(opt_dup) - 1
 		
 		# second pass: mark PCR duplicates
@@ -73,6 +77,7 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 			raise NotImplementedError
 		
 		for umi, reads in umi_reads.items(): # only UMIs with nonzero counts
+			assert reads
 			dedup_count = dedup_counts[umi]
 			n_dup = len(reads) - dedup_count
 			umi_data.mark_duplicates(reads, n_dup)
@@ -81,7 +86,7 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 			read_counter['algorithm rescued'] += dedup_count - 1
 		read_counter['UMI rescued'] -= 1 # count the first read at this position as 'distinct'
 		read_counter['distinct'] += 1
-				
+		
 		this_pos['deduplicated'] = True
 	
 	# output read
