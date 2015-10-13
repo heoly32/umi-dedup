@@ -1,6 +1,7 @@
 from __future__ import division
 import numpy as np
 import collections
+import pyximport; pyximport.install()
 import MCMC_algorithm
 
 DEFAULT_NSAMP = 1000
