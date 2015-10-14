@@ -1,7 +1,6 @@
 from __future__ import division
 import numpy as np
 import collections
-import pyximport; pyximport.install()
 import MCMC_algorithm
 
 DEFAULT_NSAMP = 1000
@@ -26,7 +25,11 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
     C_fixed = [1./n] * n
 
     # Run Gibbs sampler
-    p_post = MCMC_algorithm.MCMC_algorithm(data, n, N, S_prior, C_fixed, pi_prior, nsamp, nthin, nburn, True)
+    p_post = MCMC_algorithm.MCMC_algorithm(data, \
+                                           n, N, \
+                                           S_prior, C_fixed, pi_prior, \
+                                           nsamp, nthin, nburn, \
+                                           True)
 
     # Compute median for each tag
     median_list = [0] * n
