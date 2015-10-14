@@ -20,15 +20,17 @@ cdef extern from "gsl/gsl_randist.h":
 cdef gsl_rng *r = gsl_rng_alloc(gsl_rng_mt19937)
 
 def MCMC_algorithm(data, \
-                   unsigned int n, unsigned int N, \
+                   unsigned int n, double N, \
                    S_prior, C_prior, pi_prior, \
                    unsigned int nsamp=1000, unsigned int nthin=1, unsigned int nburn=200, \
                    uniform=True):
 
     # Type iterating variables
     cdef int i, j
-    cdef long Y_sum
+    cdef double Y_sum
     cdef long Y_single_draw
+    cdef double pi_prior_alpha = pi_prior[0]
+    cdef double pi_prior_beta = pi_prior[1]
 
     # Number of iterations
     cdef unsigned int nits = nburn + nsamp * nthin
@@ -36,6 +38,7 @@ def MCMC_algorithm(data, \
 
     # Containers -- dynamic memory allocation necessary
     cdef long *Y_values = <long *>PyMem_Malloc(n * sizeof(long))
+    cdef long *data_t = <long *>PyMem_Malloc(n * sizeof(long))
     cdef double *p_values = <double *>PyMem_Malloc(n * sizeof(double))
     cdef double *S_values = <double *>PyMem_Malloc(n * sizeof(double))
     cdef double *S_alphas = <double *>PyMem_Malloc(n * sizeof(double))
@@ -45,8 +48,12 @@ def MCMC_algorithm(data, \
     # Results will be stored in an array
     cdef double *p_post = <double *>PyMem_Malloc(n * nsamp * sizeof(double))
 
+    # Type data array
+    for i in range(n):
+        data_t[i] = data[i]
+
     # Starting values
-    cdef double pi_value = beta(r, pi_prior[0], pi_prior[1])
+    cdef double pi_value = beta(r, pi_prior_alpha, pi_prior_beta)
 
     if uniform:
         for i in range(n):
@@ -85,10 +92,10 @@ def MCMC_algorithm(data, \
                     C_alphas[j] = Y_values[j] + C_prior[j]
 
             #2. Update probability of being true molecule, using beta distribution
-            Y_sum = 0
+            Y_sum = 0.0
             for j in range(n):
                 Y_sum += Y_values[j]
-            pi_value = beta(r, Y_sum + pi_prior[0], N - Y_sum + pi_prior[1])
+            pi_value = beta(r, Y_sum + pi_prior_alpha, N - Y_sum + pi_prior_beta)
 
             #3. Update probability of having some tag given that it's a replicate, using dirichlet distribution
             dirichlet(r, n, S_alphas, S_values)
