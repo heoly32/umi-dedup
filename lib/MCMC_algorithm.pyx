@@ -27,46 +27,48 @@ def MCMC_algorithm(data, \
 
     # Type iterating variables
     cdef int i, j
+    cdef long Y_sum
+    cdef long Y_single_draw
 
     # Number of iterations
     cdef unsigned int nits = nburn + nsamp * nthin
     cdef unsigned int index = 0
 
     # Containers -- dynamic memory allocation necessary
-    cdef long *Y_old = <long *>PyMem_Malloc(n * sizeof(long))
-    cdef long *Y_new = <long *>PyMem_Malloc(n * sizeof(long))
-    cdef double *p_old = <double *>PyMem_Malloc(n * sizeof(double))
-    cdef double *p_new = <double *>PyMem_Malloc(n * sizeof(double))
-    cdef double *S_old = <double *>PyMem_Malloc(n * sizeof(double))
-    cdef double *S_new = <double *>PyMem_Malloc(n * sizeof(double))
+    cdef long *Y_values = <long *>PyMem_Malloc(n * sizeof(long))
+    cdef double *p_values = <double *>PyMem_Malloc(n * sizeof(double))
+    cdef double *S_values = <double *>PyMem_Malloc(n * sizeof(double))
     cdef double *S_alphas = <double *>PyMem_Malloc(n * sizeof(double))
-    cdef double *C_old = <double *>PyMem_Malloc(n * sizeof(double))
-    cdef double *C_new = <double *>PyMem_Malloc(n * sizeof(double))
+    cdef double *C_values = <double *>PyMem_Malloc(n * sizeof(double))
     cdef double *C_alphas = <double *>PyMem_Malloc(n * sizeof(double))
-
 
     # Results will be stored in an array
     cdef double *p_post = <double *>PyMem_Malloc(n * nsamp * sizeof(double))
 
     # Starting values
-    cdef double pi_old = beta(r, pi_prior[0], pi_prior[1])
-    for i in range(n):
-        S_alphas[i] = S_prior[i]
-    dirichlet(r, n, S_alphas, S_old)
+    cdef double pi_value = beta(r, pi_prior[0], pi_prior[1])
+
     if uniform:
         for i in range(n):
-            C_old[i] = C_prior[i]
-            C_new[i] = C_prior[i]
+            C_values[i] = C_prior[i]
+            S_alphas[i] = S_prior[i]
     else:
         for i in range(n):
             C_alphas[i] = C_prior[i]
-        dirichlet(r, n, C_alphas, C_old)
+            S_alphas[i] = S_prior[i]
+        # Draw starting values
+        dirichlet(r, n, C_alphas, C_values)
+
+    # Draw starting values
+    dirichlet(r, n, S_alphas, S_values)
 
     for i in range(n):
-            Y_old[i] = binomial(r, 0.5, data[i])
-            if Y_old[i] == 0:
-                Y_old[i] = 1
-            p_old[i] = (pi_old * C_old[i]) / (pi_old * C_old[i] + (1 - pi_old) * S_old[i])
+        Y_single_draw = binomial(r, 0.5, data[i])
+        if Y_single_draw == 0:
+            Y_values[i] = 1
+        else:
+            Y_values[i] = Y_single_draw
+        p_values[i] = (pi_value * C_values[i]) / (pi_value * C_values[i] + (1 - pi_value) * S_values[i])
 
     # Start the algorithm
     try:
@@ -74,50 +76,39 @@ def MCMC_algorithm(data, \
 
             #1. Update count of true molecules, using binomial distribution
             for j in range(n):
-                Y_new[j] = binomial(r, p_old[j], data[j])
+                Y_single_draw = binomial(r, p_values[j], data[j])
                 # Accept-reject to stay in sample space
-                if Y_new[j] == 0 and data[j] >0:
-                    Y_new[j] = Y_old[j]
-                S_alphas[j] = data[j] - Y_new[j] + S_prior[j]
+                if Y_single_draw != 0 and data[j] >0:
+                    Y_values[j] = Y_single_draw
+                S_alphas[j] = data[j] - Y_values[j] + S_prior[j]
                 if not uniform:
-                    C_alphas[j] = Y_new[j] + C_prior[j]
+                    C_alphas[j] = Y_values[j] + C_prior[j]
 
             #2. Update probability of being true molecule, using beta distribution
-            Y = 0
+            Y_sum = 0
             for j in range(n):
-                Y += Y_new[j]
-            pi_new = beta(r, Y + pi_prior[0], N - Y + pi_prior[1])
+                Y_sum += Y_values[j]
+            pi_value = beta(r, Y_sum + pi_prior[0], N - Y_sum + pi_prior[1])
 
             #3. Update probability of having some tag given that it's a replicate, using dirichlet distribution
-            dirichlet(r, n, S_alphas, S_new)
+            dirichlet(r, n, S_alphas, S_values)
             if not uniform:
-                dirichlet(r, n, C_alphas, S_new)
+                dirichlet(r, n, C_alphas, C_values)
 
             #4.  Probability of being true molecule given tag, using Bayes' theorem
             for j in range(n):
-                p_new[j] = (pi_new * C_new[j]) / (pi_new * C_new[j] + (1 - pi_new) * S_new[j])
+                p_values[j] = (pi_value * C_values[j]) / (pi_value * C_values[j] + (1 - pi_value) * S_values[j])
 
             # Should we record this draw?
             if i > nburn and i % nthin == 0:
                 for j in range(n):
-                    p_post[index*n + j] = p_new[j]
+                    p_post[index*n + j] = p_values[j]
                 index += 1
-
-            # Re-initialize vectors before next draw
-            pi_old = pi_new
-            S_old = S_new
-            C_old = C_new
-            Y_old = Y_new
-            p_old = p_new
 
         return [p_post[j] for j in range(n * nsamp)]
     finally:
-        PyMem_Free(Y_old)
-        # Y_new points to Y_old at the end of the algorithm
-        # PyMem_Free(Y_new)
-        PyMem_Free(p_old)
-        # p_new points to p_old at the end of the algorithm
-        # PyMem_Free(p_new)
+        PyMem_Free(Y_values)
+        PyMem_Free(p_values)
         PyMem_Free(p_post)
-        PyMem_Free(S_old)
-        PyMem_Free(C_old)
+        PyMem_Free(S_values)
+        PyMem_Free(C_values)
