@@ -61,13 +61,7 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 				read_counter['optical duplicate'] += len(opt_dup) - 1
 		
 		# second pass: mark PCR duplicates
-		global umi_totals
-		try:
-			umi_counts = umi_data.make_umi_counts(umi_totals.keys())
-		except NameError: # if frequency table isn't provided, make one (all zeroes) so we have a handy list of all UMIs
-			umi_totals = umi_data.make_umi_counts(umi_data.make_umi_list(len(umi_reads.keys()[0])))
-			umi_counts = copy.copy(umi_totals)
-		for umi, reads in umi_reads.items(): umi_counts[umi] = len(reads)
+		umi_counts = umi_data.make_umi_counts(umi_reads.keys(), map(len, umi_reads.values()))
 		
 		if args.algorithm == 'naive':
 			dedup_counts = naive_estimate.deduplicate_counts(umi_counts)
