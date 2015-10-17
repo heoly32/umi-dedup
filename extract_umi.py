@@ -36,14 +36,23 @@ for read in Bio.SeqIO.parse(args.in_file, 'fastq'):
 	for pos in mask_pos: umi = umi[:(pos - 1)] + umi[pos:]
 	
 	# modify read
-	read.id += ':' + umi
-	if ' ' in read.description: # problems with spaces
-		read.description = read.description[:read.description.index(' ')] + ':' + umi + read.description[read.description.index(' '):]
-	else:
-		read.description += ':' + umi
+	labels = read.description.split(' ')
+	assert labels[0] == read.id # this will be important later
+	which_read_name = None
+	for i in range(2):
+		if labels[i].count(':') in (4, 6): # Illumina format
+			which_read_name = i
+			break
+	if which_read_name is None: raise RuntimeError('unknown format in read ' + read.description)
+	# protect against Casava version < 1.8 without breaking 1.8+
+	part1 = labels[which_read_name].partition('#')
+	part2 = part1[0].partition('/')
+	labels[which_read_name] = part2[0] + ':' + umi + ''.join(part2[1:] + part1[1:])
+	read.description = ' '.join(labels)
+	read.id = labels[0] # if this is the part of the name that changed, read.id must also change or the Bio.SeqIO.parse object will give bad output
+	
 	qualities = read.letter_annotations['phred_quality']
 	read.letter_annotations = {} # letter annotations must be emptied before changing sequence
-	
 	read.seq = read.seq[trim_length:]
 	read.letter_annotations['phred_quality'] = qualities[trim_length:]
 	
