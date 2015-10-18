@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import copy, collections, argparse, pysam, sys
-from lib import parse_sam, umi_data, optical_duplicates, naive_estimate, uniform_estimate
+from lib import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate
 
 # parse arguments
 parser = argparse.ArgumentParser(description = 'Read a coordinate-sorted BAM file with labeled UMIs and mark or remove duplicates due to PCR or optical cloning, but not duplicates present in the original library. When PCR/optical duplicates are detected, the reads with the highest total base qualities are marked as non-duplicate - note we do not discriminate on MAPQ, or other alignment features, because this would bias against polymorphisms.')
@@ -12,9 +12,9 @@ parser_perf = parser.add_argument_group('performance testing')
 parser_format.add_argument('-r', '--remove', action = 'store_true', help = 'remove PCR/optical duplicates instead of marking them')
 parser_alg.add_argument('-d', '--dist', action = 'store', type = int, default = 100, help = 'maximum pixel distance for optical duplicates (Euclidean); set to 0 to skip optical duplicate detection')
 parser_alg.add_argument('-a', '--algorithm', action = 'store', default = 'naive', choices = ['naive', 'bayes', 'uniform-bayes'], help = 'algorithm for duplicate identification')
-parser_alg.add_argument('--nsamp', action = 'store', type = int, default = uniform_estimate.DEFAULT_NSAMP)
-parser_alg.add_argument('--nthin', action = 'store', type = int, default = uniform_estimate.DEFAULT_NTHIN)
-parser_alg.add_argument('--nburn', action = 'store', type = int, default = uniform_estimate.DEFAULT_NBURN)
+parser_alg.add_argument('--nsamp', action = 'store', type = int, default = bayes_estimate.DEFAULT_NSAMP)
+parser_alg.add_argument('--nthin', action = 'store', type = int, default = bayes_estimate.DEFAULT_NTHIN)
+parser_alg.add_argument('--nburn', action = 'store', type = int, default = bayes_estimate.DEFAULT_NBURN)
 parser_perf.add_argument('--truncate_umi', action = 'store', type = int, default = None, help = 'truncate UMI sequences to this length')
 parser_data.add_argument('in_file', action = 'store', nargs = '?', default = '-', help = 'input BAM')
 parser_data.add_argument('out_file', action = 'store', nargs = '?', default = '-', help = 'output BAM')
@@ -42,11 +42,11 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 	read = read_buffer.popleft()
 	start_pos, umi = parse_sam.get_start_pos(read), umi_data.get_umi(read.query_name, args.truncate_umi)
 	this_pos = pos_tracker[read.is_reverse][start_pos]
-	
+
 	# deduplicate reads at this position
 	if not this_pos['deduplicated']:
 		umi_reads = this_pos['reads']
-		
+
 		# first pass: mark optical duplicates
 		if args.dist != 0:
 			all_reads = [] # combine reads from all UMIs so optical duplicates aren't required to have matching UMIs (maybe there was a sequencing error)
@@ -54,22 +54,24 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 			for opt_dup in optical_duplicates.get_optical_duplicates(all_reads, args.dist):
 				for dup_read in umi_data.mark_duplicates(opt_dup, len(opt_dup) - 1):
 					# remove duplicate reads from the tracker so they won't be considered later (they're still in the read buffer)
-					if dup_read.is_duplicate: 
+					if dup_read.is_duplicate:
 						umi = umi_data.get_umi(dup_read.query_name, args.truncate_umi)
 						umi_reads[umi].remove(dup_read)
 						if not umi_reads[umi]: del umi_reads[umi]
 				read_counter['optical duplicate'] += len(opt_dup) - 1
-		
+
 		# second pass: mark PCR duplicates
 		umi_counts = umi_data.make_umi_counts(umi_reads.keys(), map(len, umi_reads.values()))
-		
+
 		if args.algorithm == 'naive':
 			dedup_counts = naive_estimate.deduplicate_counts(umi_counts)
 		elif args.algorithm == 'uniform-bayes':
-			dedup_counts = uniform_estimate.deduplicate_counts(umi_counts, args.nsamp, args.nthin, args.nburn)
+			dedup_counts = bayes_estimate.deduplicate_counts(umi_counts, args.nsamp, args.nthin, args.nburn, True)
+		elif args.algorithm == 'bayes':
+			dedup_counts = bayes_estimate.deduplicate_counts(umi_counts, args.nsamp, args.nthin, args.nburn, False)
 		else:
 			raise NotImplementedError
-		
+
 		for umi, reads in umi_reads.items(): # only UMIs with nonzero counts
 			assert reads
 			dedup_count = dedup_counts[umi]
@@ -80,12 +82,12 @@ def pop_buffer(): # pop the oldest read off the buffer (into the output), but fi
 			read_counter['algorithm rescued'] += dedup_count - 1
 		read_counter['UMI rescued'] -= 1 # count the first read at this position as 'distinct'
 		read_counter['distinct'] += 1
-		
+
 		this_pos['deduplicated'] = True
-	
+
 	# output read
 	if not (args.remove and read.is_duplicate): out_bam.write(read)
-	
+
 	# prune the tracker
 	if read is this_pos['last read']: del pos_tracker[read.is_reverse][start_pos]
 
@@ -109,10 +111,10 @@ for read in in_bam:
 	read.is_duplicate = False # not sure how to handle reads that have already been deduplicated somehow, so just ignore previous annotations
 	start_pos = parse_sam.get_start_pos(read)
 	read_counter['read'] += 1
-	
+
 	# advance the buffer
 	while read_buffer and (read_buffer[0].reference_id < read.reference_id or parse_sam.get_start_pos(read_buffer[0]) < read.reference_start): pop_buffer() # pop the top read if it's at a position that's definitely not going to get any more hits
-	
+
 	# add read to buffer and tracking data structure
 	read_buffer.extend([read])
 	try:
