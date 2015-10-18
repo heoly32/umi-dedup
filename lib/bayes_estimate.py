@@ -7,7 +7,7 @@ DEFAULT_NSAMP = 1000
 DEFAULT_NTHIN = 1
 DEFAULT_NBURN = 200
 
-def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN):
+def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True):
 
     # Remove zeros from data, to shorten the vector
     data = []
@@ -21,8 +21,12 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
     # Set priors for the different parameters
     pi_prior = [1, 1]
     S_prior = [1] * n
-    # The 'uniform' algorithm assumes equi-probability for all tags, before amplification
-    C_fixed = [1./n] * n
+    if uniform:
+        # The 'uniform' algorithm assumes equi-probability for all tags, before amplification
+        C_prior = [1./n] * n
+    else:
+        # The non-uniform algorithm illicits prior from data
+        C_prior = [float(data[j])/N for j in range(n)]
 
     # Run Gibbs sampler
     p_post = MCMC_algorithm.MCMC_algorithm(data, \
@@ -47,13 +51,6 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
             index += 1
 
     return umi_true
-
-def dirichletvariate(alphas):
-
-    sample = [random.gammavariate(alpha,1) for alpha in alphas]
-    sample = [x/sum(sample) for x in sample]
-
-    return sample
 
 def computeMedian(list):
     list.sort()
