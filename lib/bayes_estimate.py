@@ -31,7 +31,7 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
     # Run Gibbs sampler
     p_post = MCMC_algorithm.MCMC_algorithm(data, \
                                            n, N, \
-                                           S_prior, C_fixed, pi_prior, \
+                                           S_prior, C_prior, pi_prior, \
                                            nsamp, nthin, nburn, \
                                            True)
 
