@@ -1,18 +1,18 @@
 import collections
 
-def read_is_good (read):
-	if read.is_paired or read.is_read2: raise RuntimeError('paired-end reads are currently unsupported')
-	return not (read.is_unmapped or read.is_secondary or read.is_supplementary) # only count primary alignments, and discard unmapped reads since it's too expensive (and useless?) to find their duplicates
+def alignment_is_good (alignment):
+	if alignment.is_paired or alignment.is_read2: raise RuntimeError('paired-end reads are currently unsupported')
+	return not (alignment.is_unmapped or alignment.is_secondary or alignment.is_supplementary) # only count primary alignments, and discard unmapped reads since it's too expensive (and useless?) to find their duplicates
 
-def get_start_pos (read): # read start position in 0-based counting
-	return read.reference_end - 1 if read.is_reverse else read.reference_start
+def get_start_pos (alignment): # alignment start position in 0-based counting
+	return alignment.reference_end - 1 if alignment.is_reverse else alignment.reference_start
 
-def get_quality (read):
-	return sum(read.query_qualities)
+def get_quality (alignment):
+	return sum(alignment.query_qualities)
 
 Coords = collections.namedtuple('Coords', ['tile', 'x', 'y']) # "tile" actually also contains machine name, flow cell name, lane, etc. - enough to specify this tile all in one unique string
 
-def get_coords (read):
-	tile, x_string, y_string = read.query_name.rsplit(':', 3)[:3]
+def get_coords (alignment):
+	tile, x_string, y_string = alignment.query_name.rsplit(':', 3)[:3]
 	return Coords(tile, int(x_string), int(y_string))
 

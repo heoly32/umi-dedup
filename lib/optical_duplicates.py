@@ -1,5 +1,7 @@
 import collections, parse_sam
-	
+
+DEFAULT_DIST = 100
+
 def are_optical_duplicates (coords1, coords2, max_dist):
 	return (coords1.x - coords2.x) ** 2 + (coords1.y - coords2.y) ** 2 <= max_dist
 
