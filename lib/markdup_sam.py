@@ -26,7 +26,7 @@ class DuplicateMarker:
 		if algorithm == 'naive':
 			self.umi_dup_function = naive_estimate.deduplicate_counts
 		elif algorithm in ('bayes', 'uniform-bayes'):
-			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(umi_counts = counts, nsamp = nsamp, nthin = nthin, nburn = nburn, uniform = (algorithm == 'uniform-bayes'),  total_counts = self.truncate_umi)
+			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(umi_counts = counts, nsamp = nsamp, nthin = nthin, nburn = nburn, uniform = (algorithm == 'uniform-bayes'),  total_counts = self.umi_frequency)
 		else:
 			raise NotImplementedError
 		self.alignment_buffer = collections.deque()
