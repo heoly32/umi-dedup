@@ -58,9 +58,9 @@ class DuplicateMarker:
 			# first pass: mark optical duplicates
 			if self.optical_dist != 0:
 				for opt_dups in optical_duplicates.get_optical_duplicates(alignments, self.optical_dist):
-					for alignment in umi_data.mark_duplicates(opt_dups, len(opt_dups) - 1):
+					for dup_alignment in umi_data.mark_duplicates(opt_dups, len(opt_dups) - 1):
 						# remove duplicate reads from the tracker so they won't be considered later (they're still in the read buffer)
-						if alignment.is_duplicate: alignments.remove(alignment)
+						if dup_alignment.is_duplicate: alignments.remove(dup_alignment)
 					self.counts['optical duplicate'] += len(opt_dups) - 1
 
 			# second pass: mark PCR duplicates
