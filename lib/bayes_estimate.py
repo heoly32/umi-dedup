@@ -7,26 +7,33 @@ DEFAULT_NSAMP = 1000
 DEFAULT_NTHIN = 1
 DEFAULT_NBURN = 200
 
-def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True):
+def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, total_counts = None):
 
     # Remove zeros from data, to shorten the vector
     data = []
-    for value in umi_counts.values():
-        if value > 0:
-            data.append(value)
+    if uniform:
+        for value in umi_counts.values():
+            if value > 0:
+                data.append(value)
+    else:
+        total_data = []
+        for key, value in umi_counts.items():
+            if value > 0:
+                data.append(value)
+                total_data.append(total_counts[key])
 
     n = len(data)
     N = sum(data)
 
     # Set priors for the different parameters
-    pi_prior = [1, 1]
-    S_prior = [1] * n
+    pi_prior = [1., 1.]
+    S_prior = [1.] * n
     if uniform:
         # The 'uniform' algorithm assumes equi-probability for all tags, before amplification
         C_prior = [1./n] * n
     else:
         # The non-uniform algorithm illicits prior from data
-        C_prior = [float(data[j])/N for j in range(n)]
+        C_prior = [float(total_data[j])/N for j in range(n)]
 
     # Run Gibbs sampler
     p_post = MCMC_algorithm.MCMC_algorithm(data, \

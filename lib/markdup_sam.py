@@ -9,7 +9,7 @@ class DuplicateMarker:
 	implementation: as you traverse the coordinate-sorted input reads, add each read to both a FIFO buffer (so they can be output in the same order) and a dictionary that groups reads by start position and strand (which is what you need for deduplication); this is not inefficient because both data structures contain pointers to the same alignment objects
 	then, after each input read, check the left end of the buffer to tell whether the oldest read is in a position that will never accumulate any more hits (because the input is sorted by coordinate); if so, estimate the duplication at that position, mark all the reads there accordingly, then output the read with the appropriate marking
 	'''
-	def __init__(self, 
+	def __init__(self,
 		alignments,
 		umi_frequency = None,
 		algorithm = 'bayes',
@@ -26,35 +26,35 @@ class DuplicateMarker:
 		if algorithm == 'naive':
 			self.umi_dup_function = naive_estimate.deduplicate_counts
 		elif algorithm in ('bayes', 'uniform-bayes'):
-			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(umi_counts = counts, nsamp = nsamp, nthin = nthin, nburn = nburn, uniform = (algorithm == 'uniform-bayes'))
+			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(umi_counts = counts, nsamp = nsamp, nthin = nthin, nburn = nburn, uniform = (algorithm == 'uniform-bayes'),  total_counts = self.truncate_umi)
 		else:
 			raise NotImplementedError
 		self.alignment_buffer = collections.deque()
 		self.pos_tracker = ({}, {}) # data structure containing alignments by position rather than sort order; top level is by strand (0 = forward, 1 = reverse), then next level is by 5' read start position (dict since these will be sparse and are only looked up by identity), and that contains a variety of data; there is no level for reference ID because there is no reason to store more than one chromosome at a time
 		self.counts = collections.Counter()
 		self.output_generator = self.get_marked_alignment()
-	
+
 	def __iter__(self):
 		return self
-	
+
 	def __next__(self):
 		return next(self.output_generator)
-	
+
 	def iter(self):
 		return self
-	
+
 	def next(self):
 		return next(self.output_generator)
-	
+
 	def pop_buffer(self):
 		alignment = self.alignment_buffer.popleft()
 		start_pos = parse_sam.get_start_pos(alignment)
 		pos_data = self.pos_tracker[alignment.is_reverse][start_pos]
-		
+
 		# deduplicate reads
 		if not pos_data['deduplicated']:
 			alignments = pos_data['alignments']
-			
+
 			# first pass: mark optical duplicates
 			if self.optical_dist != 0:
 				for opt_dups in optical_duplicates.get_optical_duplicates(alignments, self.optical_dist):
@@ -62,7 +62,7 @@ class DuplicateMarker:
 						# remove duplicate reads from the tracker so they won't be considered later (they're still in the read buffer)
 						if alignment.is_duplicate: alignments.remove(alignment)
 					self.counts['optical duplicate'] += len(opt_dups) - 1
-			
+
 			# second pass: mark PCR duplicates
 			alignments_by_umi = collections.defaultdict(list)
 			for this_alignment in alignments: alignments_by_umi[umi_data.get_umi(this_alignment.query_name, self.truncate_umi)] += [this_alignment]
@@ -76,14 +76,14 @@ class DuplicateMarker:
 				self.counts['algorithm rescued'] += dedup_count - 1
 			self.counts['UMI rescued'] -= 1 # count the first read at this position as distinct
 			self.counts['distinct'] += 1
-			
+
 			pos_data['deduplicated'] = True
-		
+
 		# garbage collection
 		if alignment is pos_data['last alignment']: del self.pos_tracker[alignment.is_reverse][start_pos]
-		
+
 		return alignment
-	
+
 	def get_marked_alignment(self):
 		for alignment in self.alignments:
 			self.counts['alignment'] += 1
@@ -101,13 +101,13 @@ class DuplicateMarker:
 			alignment.is_duplicate = False # not sure how to handle alignments that have already been deduplicated somehow, so just ignore previous annotations
 			start_pos = parse_sam.get_start_pos(alignment)
 			self.counts['usable alignment'] += 1
-			
+
 			# advance the buffer
 			while self.alignment_buffer and (
 				self.alignment_buffer[0].reference_id < alignment.reference_id or # new chromosome
 				parse_sam.get_start_pos(self.alignment_buffer[0]) < alignment.reference_start # oldest buffer member is now guaranteed not to get any more hits at its position
 			): yield self.pop_buffer()
-			
+
 			# add the alignment to the tracking data structures
 			self.alignment_buffer.extend([alignment])
 			try:
@@ -115,7 +115,7 @@ class DuplicateMarker:
 			except KeyError: # first time we've seen this position+strand
 				self.pos_tracker[alignment.is_reverse][start_pos] = {'alignments': [alignment], 'deduplicated': False}
 			self.pos_tracker[alignment.is_reverse][start_pos]['last alignment'] = alignment
-		
+
 		# flush the buffer
 		while self.alignment_buffer: yield self.pop_buffer()
 
