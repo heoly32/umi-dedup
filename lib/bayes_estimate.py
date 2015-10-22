@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import collections
 import MCMC_algorithm
+import sys
 
 DEFAULT_NSAMP = 1000
 DEFAULT_NTHIN = 1
@@ -33,7 +34,9 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
         C_prior = [1./n] * n
     else:
         # The non-uniform algorithm illicits prior from data
-        C_prior = [float(total_data[j])/N for j in range(n)]
+        N_total = sum(total_counts.values())
+        C_prior = [float(total_data[j])/N_total for j in range(n)]
+        C_prior = [C_prior[j]/min(C_prior) for j in range(n)]
 
     # Run Gibbs sampler
     p_post = MCMC_algorithm.MCMC_algorithm(data, \
