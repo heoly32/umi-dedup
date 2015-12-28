@@ -102,7 +102,7 @@ def get_read_pair_umis (
 	for read_and_umi1, read_and_umi2 in zip(get_read_umis(in_file1, umi_length1, before1, after1, mask_pos1, False), get_read_umis(in_file2, umi_length2, before2, after2, mask_pos2, False)):
 		read1, umi1 = read_and_umi1
 		read2, umi2 = read_and_umi2
-		# verify they're the same read!
+		if read1.name != read2.name: raise RuntimeError('mismatched reads\n%s (%s)\n%s (%s)\n' % (read1.name, in_file1.name, read2.name, in_file2.name))
 
 		if relabel:
 			combined_umi = umi1 + pair_separator + umi2
