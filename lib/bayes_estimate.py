@@ -35,8 +35,9 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
     else:
         # The non-uniform algorithm illicits prior from data
         N_total = sum(total_counts.values())
-        C_prior = [float(total_data[j])/N_total for j in range(n)]
-        C_prior = [C_prior[j]/min(C_prior) for j in range(n)]
+        C_prior = [data[j]/N for j in range(n)]
+        # C_prior = [float(total_data[j])/N_total for j in range(n)]
+        # C_prior = [C_prior[j]/min(C_prior) for j in range(n)]
 
     # Run Gibbs sampler
     p_post = MCMC_algorithm.MCMC_algorithm(data, \
@@ -57,7 +58,12 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
         if value == 0:
             umi_true[key] = value
         else:
-            umi_true[key] = int(np.ceil(median_list[index] * data[index]))
+            estimate = int(round(median_list[index] * data[index]))
+            # All zero counts are taken care of by the previous if statement
+            # Therefore an estimate of zero should be bumped up to 1
+            if estimate == 0:
+                estimate = 1
+            umi_true[key] = estimate
             index += 1
 
     return umi_true
