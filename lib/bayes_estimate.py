@@ -10,19 +10,21 @@ DEFAULT_NBURN = 200
 DEFAULT_ALPHA = 1.5
 
 def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, total_counts = None, alpha = DEFAULT_ALPHA, filter_counts = True):
-
-    # Remove zeros from data, to shorten the vector
-    data = []
-    if uniform:
-        for value in umi_counts.values():
-            if value > 0:
-                data.append(value)
+    if filter_counts:
+        # Remove zeros from data, to shorten the vector
+        data = []
+        if uniform:
+            for value in umi_counts.values():
+                if value > 0:
+                    data.append(value)
+        else:
+            total_data = []
+            for key, value in umi_counts.items():
+                if value > 0:
+                    data.append(value)
+                    total_data.append(total_counts[key])
     else:
-        total_data = []
-        for key, value in umi_counts.items():
-            if value > 0:
-                data.append(value)
-                total_data.append(total_counts[key])
+        data = umi_counts.values()
 
     n = len(data)
     N = sum(data)
@@ -31,14 +33,18 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
     pi_prior = [1., 1.]
     S_prior = [1.] * n
     if uniform:
-        # The 'uniform' algorithm assumes equi-probability for all tags, before amplification
-        C_prior = [1./n] * n
+            # The 'uniform' algorithm assumes equi-probability for all tags, before amplification
+            C_prior = [1./n] * n
     else:
-        # The non-uniform algorithm illicits prior from data
-        N_total = sum(total_data)
-        C_prior = [float(alpha * total_data[j])/N_total for j in range(n)]
-        # Uncomment next line to use only current data to illicit prior
-        # C_prior = [float(data[j])/N for j in range(n)]
+        if filter_counts:
+            # The non-uniform algorithm illicits prior from data
+            N_total = sum(total_data)
+            C_prior = [float(alpha * total_data[j])/N_total for j in range(n)]
+            # Uncomment next line to use only current data to illicit prior
+            # C_prior = [float(data[j])/N for j in range(n)]
+        else:
+            N_total = sum(total_counts.values())
+            C_prior = [float(alpha * total_counts.values())/N_total for j in range(n)]
 
     # Run Gibbs sampler
     pi_post = MCMC_algorithm_pi.MCMC_algorithm(data, \
