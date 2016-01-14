@@ -7,8 +7,9 @@ import sys
 DEFAULT_NSAMP = 1000
 DEFAULT_NTHIN = 1
 DEFAULT_NBURN = 200
+DEFAULT_ALPHA = 1.5
 
-def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, total_counts = None):
+def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, total_counts = None, alpha = DEFAULT_ALPHA, filter_counts = True):
 
     # Remove zeros from data, to shorten the vector
     data = []
@@ -35,7 +36,7 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
     else:
         # The non-uniform algorithm illicits prior from data
         N_total = sum(total_data)
-        C_prior = [float(1.5 * total_data[j])/N_total for j in range(n)]
+        C_prior = [float(alpha * total_data[j])/N_total for j in range(n)]
         # Uncomment next line to use only current data to illicit prior
         # C_prior = [float(data[j])/N for j in range(n)]
 
