@@ -2,7 +2,8 @@ from __future__ import division
 import collections, itertools, re, pysam, parse_sam
 
 alphabet = 'ACGT' # expected characters in UMI sequences
-re_exclusion = re.compile('[^%s]' % alphabet) # match any unexpected character (like N)
+default_pair_separator = '+' # what separates the two UMIs in paired-end read names
+re_exclusion = re.compile('[^%s]' % (alphabet + default_pair_separator)) # match any unexpected character (like N)
 
 def umi_is_good (umi):
 	return (re_exclusion.search(umi) is None)

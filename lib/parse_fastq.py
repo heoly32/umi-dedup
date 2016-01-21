@@ -1,6 +1,4 @@
-import itertools, Bio.SeqIO
-
-default_pair_separator = '+' # what separates the two UMIs in paired-end read names
+import itertools, Bio.SeqIO, umi_data
 
 def get_umi (seq, length, before = 0, mask_pos = []):
 	'''
@@ -87,7 +85,7 @@ def get_read_pair_umis (
 	after2 = 0,
 	mask_pos1 = [],
 	mask_pos2 = [],
-	pair_separator = default_pair_separator,
+	pair_separator = umi_data.default_pair_separator,
 	relabel = True
 ):
 	'''
