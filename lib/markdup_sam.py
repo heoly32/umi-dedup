@@ -2,6 +2,28 @@ import collections, copy, parse_sam, umi_data, optical_duplicates, naive_estimat
 
 DUP_CATEGORIES = ['optical duplicate', 'PCR duplicate']
 
+class PosTracker:
+	'''
+	data structure for tracking reads at a certain start position
+	meant to be used internally in DuplicateMarker
+	'''
+	
+	__slots__ = ['alignments_by_mate', 'alignments_already_processed', 'last_alignment', 'deduplicated']
+	
+	def __init__(self,
+		alignments_by_mate = None,
+		alignments_already_processed = None,
+		last_alignment = None,
+		deduplicated = False
+	):
+		self.alignments_by_mate = alignments_by_mate if alignments_by_mate is not None else collections.defaultdict(list)
+		self.alignments_already_processed = alignments_already_processed if alignments_already_processed is not None else collections.defaultdict(lambda: collections.defaultdict(dict))
+		self.last_alignment = last_alignment
+		self.deduplicated = deduplicated
+	
+	def __repr__(self):
+		return '%s(alignments_by_mate = %s, alignments_already_processed = %s, last_alignment = %s, deduplicated = %s)' % (self.__class__, self.alignments_by_mate, self.alignments_already_processed, self.last_alignment, self.deduplicated)
+
 class DuplicateMarker:
 	'''
 	a generator of duplicate-marked alignments (like pysam.AlignedSegment objects), given an iterable of alignments (like a pysam.AlignmentFile) as input
@@ -33,7 +55,7 @@ class DuplicateMarker:
 		else:
 			raise NotImplementedError
 		self.alignment_buffer = collections.deque()
-		self.pos_tracker = ({}, {}) # data structure containing alignments by position rather than sort order; top level is by strand (0 = forward, 1 = reverse), then next level is by 5' read start position (dict since these will be sparse and are only looked up by identity), then next level is by 5' start position of mate read, and each element of that contains a variety of data; there is no level for reference ID because there is no reason to store more than one chromosome at a time
+		self.pos_tracker = (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker)) # data structure containing alignments by position rather than sort order; top level is by strand (0 = forward, 1 = reverse), then next level is by 5' read start position (dict since these will be sparse and are only looked up by identity), then next level is by 5' start position of mate read, and each element of that contains a variety of data; there is no level for reference ID because there is no reason to store more than one chromosome at a time
 		self.counts = collections.Counter()
 		self.output_generator = self.get_marked_alignment()
 		self.current_reference_id = 0
@@ -57,17 +79,17 @@ class DuplicateMarker:
 		pos_data = self.pos_tracker[alignment.is_reverse][start_pos]
 		
 		# deduplicate reads
-		if not pos_data['deduplicated']:
-			for mate_start_pos, alignments_with_this_mate in pos_data['alignments by mate start'].iteritems(): # iterate over mate start positions
+		if not pos_data.deduplicated:
+			for mate_start_pos, alignments_with_this_mate in pos_data.alignments_by_mate.iteritems(): # iterate over mate start positions
 				alignments_to_dedup = copy.copy(alignments_with_this_mate)
 				
 				# if mate is already deduplicated, use those results
-				if mate_start_pos in pos_data['already processed']:
+				if mate_start_pos in pos_data.alignments_already_processed:
 					umi_nondup_counts = collections.Counter()
 					for already_processed_alignment in alignments_with_this_mate:
 						umi = umi_data.get_umi(already_processed_alignment.query_name, self.truncate_umi)
 						try:
-							category = pos_data['already processed'][mate_start_pos][umi][already_processed_alignment.query_name]
+							category = pos_data.alignments_already_processed[mate_start_pos][umi][already_processed_alignment.query_name]
 							if category in DUP_CATEGORIES:
 								already_processed_alignment.is_duplicate = True
 								self.counts[category] += 1
@@ -115,33 +137,19 @@ class DuplicateMarker:
 					if mate_start_pos is not None:
 						for categorized_alignment, category in alignment_categories.iteritems():
 							categorized_alignment_umi = umi_data.get_umi(categorized_alignment)
-							try:
-								self.pos_tracker[not alignment.is_reverse][mate_start_pos]['already processed'][start_pos][categorized_alignment_umi][categorized_alignment] = category
-							except KeyError: # first time we've seen this mate strand+position+mate+UMI
-								try:
-									self.pos_tracker[not alignment.is_reverse][mate_start_pos]['already processed'][start_pos][categorized_alignment_umi] = {categorized_alignment: category}
-								except KeyError: # first time we've seen this mate strand+position+mate
-									try:
-										self.pos_tracker[not alignment.is_reverse][mate_start_pos]['already processed'][start_pos] = {categorized_alignment_umi: {categorized_alignment: category}}
-									except KeyError: # first time we've seen this mate strand+position
-										self.pos_tracker[not alignment.is_reverse][mate_start_pos] = {
-											'alignments by mate start': collections.defaultdict(list),
-											'already processed': {start_pos: {categorized_alignment_umi: {categorized_alignment: category}}},
-											'deduplicated': False,
-											'last alignment': None
-										}
+							self.pos_tracker[not alignment.is_reverse][mate_start_pos].alignments_already_processed[start_pos][categorized_alignment_umi][categorized_alignment] = category
 			
-			pos_data['deduplicated'] = True
+			pos_data.deduplicated = True
 		
 		# garbage collection
-		if pos_data['last alignment'] is alignment:	del self.pos_tracker[alignment.is_reverse][start_pos]
+		if pos_data.last_alignment is alignment:	del self.pos_tracker[alignment.is_reverse][start_pos]
 
 		return alignment
 
 	def tracker_is_empty(self): # verify that any remaining positions are only "already processed" reads that never appeared
 		for tracker in self.pos_tracker:
 			for pos in tracker.values():
-				if pos['alignments by mate start'] or pos['last alignment']: return False
+				if pos.alignments_by_mate or pos.last_alignment: return False
 		return True
 
 	def get_marked_alignment(self):
@@ -171,20 +179,13 @@ class DuplicateMarker:
 			): yield self.pop_buffer()
 			if alignment.reference_id > self.current_reference_id: # clear the tracker
 				assert self.tracker_is_empty()
-				self.pos_tracker = ({}, {})
+				self.pos_tracker = (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker))
 				self.current_reference_id = alignment.reference_id
 
 			# add the alignment to the tracking data structures
 			self.alignment_buffer.extend([alignment])
-			try:
-				self.pos_tracker[alignment.is_reverse][start_pos]['alignments by mate start'][mate_start_pos] += [alignment]
-			except KeyError: # first time we've seen this strand+position
-				self.pos_tracker[alignment.is_reverse][start_pos] = {
-					'alignments by mate start': collections.defaultdict(list, [(mate_start_pos, [alignment])]),
-					'already processed': collections.defaultdict(dict),
-					'deduplicated': False
-				}
-			self.pos_tracker[alignment.is_reverse][start_pos]['last alignment'] = alignment
+			self.pos_tracker[alignment.is_reverse][start_pos].alignments_by_mate[mate_start_pos] += [alignment]
+			self.pos_tracker[alignment.is_reverse][start_pos].last_alignment = alignment
 			self.most_recent_left_pos = alignment.reference_start
 
 		# flush the buffer
