@@ -15,6 +15,8 @@ parser_alg.add_argument('-a', '--algorithm', action = 'store', default = 'naive'
 parser_alg.add_argument('--nsamp', action = 'store', type = int, default = bayes_estimate.DEFAULT_NSAMP)
 parser_alg.add_argument('--nthin', action = 'store', type = int, default = bayes_estimate.DEFAULT_NTHIN)
 parser_alg.add_argument('--nburn', action = 'store', type = int, default = bayes_estimate.DEFAULT_NBURN)
+parser_alg.add_argument('--filter', action = 'store_true', default = True, help = 'remove zero counts before running bayes or uniform-bayes')
+parser_alg.add_argument('--alpha', action = 'store', type = float, default = bayes_estimate.DEFAULT_ALPHA, help = 'scaling factor for the empirical prior (only relevant for bayes algorithm)')
 parser_perf.add_argument('--truncate_umi', action = 'store', type = int, default = None, help = 'truncate UMI sequences to this length')
 parser_data.add_argument('in_file', action = 'store', nargs = '?', default = '-', help = 'input BAM')
 parser_data.add_argument('out_file', action = 'store', nargs = '?', default = '-', help = 'output BAM')
@@ -40,6 +42,20 @@ except TypeError:
 	else:
 		umi_totals = None
 
+# Compute prior
+if args.algorithm == 'bayes':
+	try:
+		denom = sum(umi_totals.values())
+		prior = collections.OrderedDict()
+		for key, value in umi_totals.items():
+			prior[key] = args.alpha * value / denom
+	except  AttributeError:
+		prior = None
+		args.algorithm = 'uniform-bayes'
+
+else:
+	prior = None
+
 # second pass: mark duplicates
 dup_marker = markdup_sam.DuplicateMarker(
 	alignments = in_bam,
@@ -49,7 +65,9 @@ dup_marker = markdup_sam.DuplicateMarker(
 	truncate_umi = args.truncate_umi,
 	nsamp = args.nsamp,
 	nthin = args.nthin,
-	nburn = args.nburn
+	nburn = args.nburn,
+	prior = prior,
+	filter_counts = args.filter
 )
 for alignment in dup_marker:
 	if not (args.remove and alignment.is_duplicate): out_bam.write(alignment)
