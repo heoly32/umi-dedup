@@ -9,20 +9,22 @@ DEFAULT_NTHIN = 1
 DEFAULT_NBURN = 200
 DEFAULT_ALPHA = 1.5
 
-def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, total_counts = None, alpha = DEFAULT_ALPHA, filter_counts = True):
+def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, total_counts = None, prior=None, filter_counts = True):
+
     if filter_counts:
         # Remove zeros from data, to shorten the vector
         data = []
         if uniform:
+            C_prior = [1./n] * n
             for value in umi_counts.values():
                 if value > 0:
                     data.append(value)
         else:
-            total_data = []
+            C_prior = []
             for key, value in umi_counts.items():
                 if value > 0:
                     data.append(value)
-                    total_data.append(total_counts[key])
+                    C_prior.append(prior[key])
     else:
         data = umi_counts.values()
 
@@ -32,19 +34,6 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
     # Set priors for the different parameters
     pi_prior = [1., 1.]
     S_prior = [1.] * n
-    if uniform:
-            # The 'uniform' algorithm assumes equi-probability for all tags, before amplification
-            C_prior = [1./n] * n
-    else:
-        if filter_counts:
-            # The non-uniform algorithm illicits prior from data
-            N_total = sum(total_data)
-            C_prior = [float(alpha * total_data[j])/N_total for j in range(n)]
-            # Uncomment next line to use only current data to illicit prior
-            # C_prior = [float(data[j])/N for j in range(n)]
-        else:
-            N_total = sum(total_counts.values())
-            C_prior = [float(alpha * total_counts.values())/N_total for j in range(n)]
 
     # Run Gibbs sampler
     pi_post = MCMC_algorithm_pi.MCMC_algorithm(data, \
@@ -52,11 +41,6 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
                                             S_prior, C_prior, pi_prior, \
                                             nsamp, nthin, nburn, \
                                             True)
-
-    # # Compute median for each tag
-    # median_list = [0] * n
-    # for i in range(n):
-    #     median_list[i] = computeMedian(p_post[i::n])
 
     # Distribute counts across tags
     p = computeMedian(pi_post)
@@ -68,7 +52,6 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
         if raw_count == 0:
             umi_true[umi] = raw_count
         else:
-            # umi_true[key] = int(np.ceil(median_list[index] * data[index]))
             umi_true[umi] = int(round(dedup))
             assert(umi_true[umi] > 0)
 
