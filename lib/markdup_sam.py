@@ -18,7 +18,7 @@ class DuplicateMarker:
 		nsamp = bayes_estimate.DEFAULT_NSAMP,
 		nthin = bayes_estimate.DEFAULT_NTHIN,
 		nburn = bayes_estimate.DEFAULT_NBURN,
-		prior = None
+		prior = None,
 		filter_counts = True
 	):
 		self.alignments = alignments

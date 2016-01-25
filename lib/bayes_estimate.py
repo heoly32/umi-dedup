@@ -15,20 +15,22 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
         # Remove zeros from data, to shorten the vector
         data = []
         if uniform:
-            C_prior = [1./n] * n
             for value in umi_counts.values():
                 if value > 0:
                     data.append(value)
+            n = len(data)
+            C_prior = [1./n] * n
         else:
             C_prior = []
             for key, value in umi_counts.items():
                 if value > 0:
                     data.append(value)
                     C_prior.append(prior[key])
+            n = len(data)
     else:
         data = umi_counts.values()
+        n = len(data)
 
-    n = len(data)
     N = sum(data)
 
     # Set priors for the different parameters
