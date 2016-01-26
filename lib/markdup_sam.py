@@ -42,7 +42,9 @@ class DuplicateMarker:
 		truncate_umi = None,
 		nsamp = bayes_estimate.DEFAULT_NSAMP,
 		nthin = bayes_estimate.DEFAULT_NTHIN,
-		nburn = bayes_estimate.DEFAULT_NBURN
+		nburn = bayes_estimate.DEFAULT_NBURN,
+		prior = None,
+		filter_counts = True
 	):
 		self.alignments = alignments
 		self.umi_frequency = umi_frequency
@@ -51,7 +53,7 @@ class DuplicateMarker:
 		if algorithm == 'naive':
 			self.umi_dup_function = naive_estimate.deduplicate_counts
 		elif algorithm in ('bayes', 'uniform-bayes'):
-			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(umi_counts = counts, nsamp = nsamp, nthin = nthin, nburn = nburn, uniform = (algorithm == 'uniform-bayes'),  total_counts = self.umi_frequency)
+			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(umi_counts = counts, nsamp = nsamp, nthin = nthin, nburn = nburn, uniform = (algorithm == 'uniform-bayes'),  total_counts = self.umi_frequency, prior = prior, filter_counts = filter_counts)
 		else:
 			raise NotImplementedError
 		self.alignment_buffer = collections.deque()
