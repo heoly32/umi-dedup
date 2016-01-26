@@ -15,7 +15,8 @@ parser_data.add_argument('out_file', action = 'store', nargs = '?', type = argpa
 args = parser.parse_args()
 
 umi_totals = umi_data.read_umi_counts_from_reads((Bio.SeqIO.parse(args.in_file, 'fastq') if args.fastq else pysam.Samfile('-' if args.in_file is sys.stdin else args.in_file, 'rb')), args.truncate_umi)
-args.in_file.close()
+try: args.in_file.close()
+except AttributeError: pass # if it's a string it won't close, but that's okay because it's already garbage-collected
 
 # generate summary statistics
 sys.stderr.write('%i UMIs read\n' % sum(umi_totals.values()))
