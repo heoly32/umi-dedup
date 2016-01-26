@@ -8,8 +8,11 @@ re_exclusion = re.compile('[^%s]' % (alphabet + default_pair_separator)) # match
 def umi_is_good (umi):
 	return (re_exclusion.search(umi) is None)
 
-def make_umi_list (length, alphabet = alphabet):
-	return (''.join(umi) for umi in itertools.product(alphabet, repeat = length))
+def make_umi_list (length, separator_position = None, alphabet = alphabet):
+	for sequence in itertools.product(alphabet, repeat = length):
+		umi = ''.join(sequence)
+		if separator_position is not None: umi = umi[:separator_position] + default_pair_separator + umi[separator_position:]
+		yield umi
 
 def make_umi_counts (umi_list, counts = None):
 	try:
@@ -21,9 +24,15 @@ def get_umi (read_name, truncate = None):
 	for label in read_name.split(' ')[:2]: # to allow NCBI format or regular Illumina
 		if label.count(':') in (5, 7): # Casava pre-1.8: should be 5 (4 + the UMI hack); Casava 1.8+ / bcl2fastq 2.17+: should be 7 (with optional UMI field)
 			umi = label.partition('#')[0].partition('/')[0].rpartition(':')[2] # don't include the space or # and the stuff after it, if present
-			return (umi if truncate is None else umi[:truncate])
+			return (umi if truncate is None else umi[:truncate + umi.count(default_pair_separator)]) # don't count the pair separator when truncating
 	# only get here if nothing was found
 	raise RuntimeError('read name %s does not contain UMI in expected Casava/bcl2fastq format' % label)
+
+def get_pair_separator_position (umi):
+	try:
+		return umi.index(default_pair_separator)
+	except ValueError:
+		return None
 
 def read_umi_counts_from_table (in_file, truncate = None):
 	result = collections.OrderedDict()
@@ -49,10 +58,10 @@ def read_umi_counts_from_reads (in_file, truncate = None): # in_file should be a
 		except AttributeError:
 			read_name = read.id # EAFP; if this isn't found either, AttributeError is still raised
 		umi = get_umi(read_name, truncate)
-		if len(umi) != umi_length:		
+		if len(umi) - umi.count(default_pair_separator) != umi_length:		
 			if umi_length is None:
-				umi_length = len(umi)
-				umi_totals = make_umi_counts(make_umi_list(umi_length))
+				umi_length = len(umi) - umi.count(default_pair_separator)
+				umi_totals = make_umi_counts(make_umi_list(umi_length, get_pair_separator_position(umi)))
 			else:
 				raise RuntimeError('different UMI length in read ' + read_name)
 		try:
