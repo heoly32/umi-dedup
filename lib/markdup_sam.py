@@ -68,7 +68,7 @@ class DuplicateMarker:
 			# second pass: mark PCR duplicates
 			alignments_by_umi = collections.defaultdict(list)
 			for this_alignment in alignments: alignments_by_umi[umi_data.get_umi(this_alignment.query_name, self.truncate_umi)] += [this_alignment]
-			dedup_counts = self.umi_dup_function(umi_data.make_umi_counts(alignments_by_umi.keys(), map(len, alignments_by_umi.values())))
+			dedup_counts = self.umi_dup_function(dict((umi, len(alignments)) for umi, alignments in alignments_by_umi.iteritems()))
 			for umi, alignments, dedup_count in zip(alignments_by_umi.keys(), alignments_by_umi.values(), dedup_counts.values()):
 				assert alignments
 				n_dup = len(alignments) - dedup_count

@@ -43,18 +43,13 @@ except TypeError:
 		umi_totals = None
 
 # Compute prior
+prior = None
 if args.algorithm == 'bayes':
 	try:
 		denom = sum(umi_totals.values())
-		prior = collections.OrderedDict()
-		for key, value in umi_totals.items():
-			prior[key] = args.alpha * value / denom
-	except  AttributeError:
-		prior = None
+		prior = collections.OrderedDict((umi, args.alpha * count / denom) for umi, count in umi_totals.iteritems())
+	except AttributeError:
 		args.algorithm = 'uniform-bayes'
-
-else:
-	prior = None
 
 # second pass: mark duplicates
 dup_marker = markdup_sam.DuplicateMarker(

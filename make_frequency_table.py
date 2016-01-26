@@ -20,7 +20,7 @@ except AttributeError: pass # if it's a string it won't close, but that's okay b
 
 # generate summary statistics
 sys.stderr.write('%i UMIs read\n' % sum(umi_totals.values()))
-for umi, count in umi_totals.items():
-	args.out_file.write('%s\t%i\n' % (umi, count))
+for umi in umi_data.make_umi_list(len(umi_totals.keys()[0])):
+	args.out_file.write('%s\t%i\n' % (umi, umi_totals[umi]))
 args.out_file.close()
 
