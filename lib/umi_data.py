@@ -53,6 +53,7 @@ def read_umi_counts_from_table (in_file, truncate = None):
 def read_umi_counts_from_reads (in_file, truncate = None): # in_file should be a pysam.Samfile or a Bio.SeqIO.parse in 'fastq' format, or at least contain an Illumina-formatted name in either 'query_name' or 'id'
 	umi_totals = umi_length = None
 	for read in in_file:
+		if hasattr(read, 'is_paired') and read.is_paired and not parse_sam.alignment_is_properly_paired(read): continue
 		try:
 			read_name = read.query_name
 		except AttributeError:
