@@ -37,7 +37,7 @@ try:
 except TypeError:
 	if args.algorithm == 'bayes':
 		umi_totals = umi_data.read_umi_counts_from_reads(in_bam, args.truncate_umi)
-		sys.stderr.write('%i\tusable alignments read\n' % sum(umi_totals.values()))
+		sys.stderr.write('%i\tusable alignments read\n\n' % sum(umi_totals.values()))
 		in_bam.reset()
 	else:
 		umi_totals = None
@@ -75,10 +75,13 @@ in_bam.close()
 out_bam.close()
 
 # report summary statistics
-if args.algorithm == 'bayes' and args.umi_table is None:
+if args.algorithm == 'bayes' and args.umi_table is None: # would already have reported alignments read
 	assert sum(umi_totals.values()) == dup_marker.counts['usable alignment']
-else:
-	sys.stderr.write('%i\talignments read\n%i\tusable alignments read\n' % (dup_marker.counts['alignment'], dup_marker.counts['usable alignment']))
-if args.dist != 0: sys.stderr.write('%i\toptical duplicates\n' % dup_marker.counts['optical duplicate'])
-sys.stderr.write('%i\tPCR duplicates\n%i\tdistinct alignments\n%i\tpre-PCR duplicates rescued by UMIs\n%i\tpre-PCR duplicates rescued by algorithm\n' % tuple(dup_marker.counts[x] for x in ['PCR duplicate', 'distinct', 'UMI rescued', 'algorithm rescued']))
+sys.stderr.write(
+	('%i\talignments read\n%i\tusable alignments read\n\n' % (dup_marker.counts['alignment'], dup_marker.counts['usable alignment']) if not (args.algorithm == 'bayes' and args.umi_table is None) else '') +
+	'%i\tdistinct alignments\n' % dup_marker.counts['distinct'] +
+	('%i\toptical duplicates\n' % dup_marker.counts['optical duplicate'] if args.dist != 0 else '') +
+	'%i\tPCR duplicates\n%i\tpre-PCR duplicates rescued by UMIs\n%i\tpre-PCR duplicates rescued by algorithm\n' % tuple(dup_marker.counts[x] for x in ['PCR duplicate', 'UMI rescued', 'algorithm rescued'])
+)
+
 
