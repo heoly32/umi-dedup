@@ -7,9 +7,9 @@ class PosTracker:
 	data structure for tracking reads at a certain start position
 	meant to be used internally in DuplicateMarker
 	'''
-	
+
 	__slots__ = ['alignments_by_mate', 'alignments_already_processed', 'last_alignment', 'deduplicated']
-	
+
 	def __init__(self,
 		alignments_by_mate = None,
 		alignments_already_processed = None,
@@ -20,7 +20,7 @@ class PosTracker:
 		self.alignments_already_processed = alignments_already_processed if alignments_already_processed is not None else collections.defaultdict(lambda: collections.defaultdict(dict))
 		self.last_alignment = last_alignment
 		self.deduplicated = deduplicated
-	
+
 	def __repr__(self):
 		return '%s(alignments_by_mate = %s, alignments_already_processed = %s, last_alignment = %s, deduplicated = %s)' % (self.__class__, self.alignments_by_mate, self.alignments_already_processed, self.last_alignment, self.deduplicated)
 
@@ -79,12 +79,12 @@ class DuplicateMarker:
 		alignment = self.alignment_buffer.popleft()
 		start_pos = parse_sam.get_start_pos(alignment)
 		pos_data = self.pos_tracker[alignment.is_reverse][start_pos]
-		
+
 		# deduplicate reads
 		if not pos_data.deduplicated:
 			for mate_start_pos, alignments_with_this_mate in pos_data.alignments_by_mate.iteritems(): # iterate over mate start positions
 				alignments_to_dedup = copy.copy(alignments_with_this_mate)
-				
+
 				# if mate is already deduplicated, use those results
 				if mate_start_pos in pos_data.alignments_already_processed:
 					umi_nondup_counts = collections.Counter()
@@ -106,10 +106,10 @@ class DuplicateMarker:
 						self.counts['algorithm rescued'] += umi_nondup_count - 1
 					self.counts['UMI rescued'] -= bool(umi_nondup_counts) # count the first read at this position as distinct
 					self.counts['distinct'] += bool(umi_nondup_counts)
-				
+
 				if alignments_to_dedup: # false if they had all been deduplicated already
 					alignment_categories = {} # key = alignment query_name, value = which category it is (from DUP_CATEGORIES or otherwise)
-					
+
 					# first pass: mark optical duplicates
 					if self.optical_dist != 0:
 						for opt_dups in optical_duplicates.get_optical_duplicates(alignments_to_dedup, self.optical_dist):
@@ -119,7 +119,7 @@ class DuplicateMarker:
 									alignments_to_dedup.remove(dup_alignment)
 									alignment_categories[dup_alignment.query_name] = 'optical duplicate'
 									self.counts['optical duplicate'] += 1
-					
+
 					# second pass: mark PCR duplicates
 					alignments_by_umi = collections.defaultdict(list)
 					for this_alignment in alignments_to_dedup: alignments_by_umi[umi_data.get_umi(this_alignment.query_name, self.truncate_umi)] += [this_alignment]
@@ -134,15 +134,15 @@ class DuplicateMarker:
 						self.counts['algorithm rescued'] += dedup_count - 1
 					self.counts['UMI rescued'] -= bool(alignments_by_umi) # count the first read at this position as distinct
 					self.counts['distinct'] += bool(alignments_by_umi)
-					
+
 					# pass duplicate marking to mates
 					if mate_start_pos is not None:
 						for categorized_alignment, category in alignment_categories.iteritems():
 							categorized_alignment_umi = umi_data.get_umi(categorized_alignment)
 							self.pos_tracker[not alignment.is_reverse][mate_start_pos].alignments_already_processed[start_pos][categorized_alignment_umi][categorized_alignment] = category
-			
+
 			pos_data.deduplicated = True
-		
+
 		# garbage collection
 		if pos_data.last_alignment is alignment:	del self.pos_tracker[alignment.is_reverse][start_pos]
 
@@ -192,7 +192,7 @@ class DuplicateMarker:
 
 		# flush the buffer
 		while self.alignment_buffer: yield self.pop_buffer()
-		
+
 		assert self.tracker_is_empty()
 		assert self.counts['usable alignment'] == sum(self.counts[x] for x in ['distinct', 'optical duplicate', 'PCR duplicate', 'UMI rescued', 'algorithm rescued'])
 
