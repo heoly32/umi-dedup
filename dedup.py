@@ -16,7 +16,8 @@ parser_alg.add_argument('--nsamp', action = 'store', type = int, default = bayes
 parser_alg.add_argument('--nthin', action = 'store', type = int, default = bayes_estimate.DEFAULT_NTHIN)
 parser_alg.add_argument('--nburn', action = 'store', type = int, default = bayes_estimate.DEFAULT_NBURN)
 parser_alg.add_argument('--filter', action = 'store_true', default = True, help = 'remove zero counts before running bayes or uniform-bayes')
-parser_alg.add_argument('--alpha', action = 'store', type = float, default = bayes_estimate.DEFAULT_ALPHA, help = 'scaling factor for the empirical prior (only relevant for bayes algorithm)')
+parser_alg.add_argument('--alpha1', action = 'store', type = float, default = bayes_estimate.DEFAULT_ALPHA1, help = 'scaling factor for the empirical prior (only relevant for bayes algorithm)')
+parser_alg.add_argument('--alpha2', action = 'store', type = float, default = bayes_estimate.DEFAULT_ALPHA2, help = 'scaling factor for the prior on the true proportion')
 parser_perf.add_argument('--truncate_umi', action = 'store', type = int, default = None, help = 'truncate UMI sequences to this length')
 parser_data.add_argument('in_file', action = 'store', nargs = '?', default = '-', help = 'input BAM')
 parser_data.add_argument('out_file', action = 'store', nargs = '?', default = '-', help = 'output BAM')
@@ -47,7 +48,7 @@ prior = None
 if args.algorithm == 'bayes':
 	try:
 		denom = sum(umi_totals.nonzero_values())
-		prior = collections.OrderedDict((umi, args.alpha * count / denom) for umi, count in umi_totals.iteritems())
+		prior = collections.OrderedDict((umi, args.alpha1 * count / denom) for umi, count in umi_totals.iteritems())
 	except AttributeError:
 		args.algorithm = 'uniform-bayes'
 
