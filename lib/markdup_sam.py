@@ -123,9 +123,10 @@ class DuplicateMarker:
 					# second pass: mark PCR duplicates
 					alignments_by_umi = collections.defaultdict(list)
 					for this_alignment in alignments_to_dedup: alignments_by_umi[umi_data.get_umi(this_alignment.query_name, self.truncate_umi)] += [this_alignment]
-					dedup_counts = self.umi_dup_function(umi_data.make_umi_counts(alignments_by_umi.keys(), map(len, alignments_by_umi.values())))
-					for umi, alignments_with_this_umi, dedup_count in zip(alignments_by_umi.keys(), alignments_by_umi.values(), dedup_counts.values()):
-						assert alignments_with_this_umi
+					dedup_counts = self.umi_dup_function(umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.iteritems()]))
+					for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
+						dedup_count = dedup_counts[umi]
+						assert alignments_with_this_umi and dedup_count
 						n_dup = len(alignments_with_this_umi) - dedup_count
 						for marked_alignment in umi_data.mark_duplicates(alignments_with_this_umi, n_dup):
 							alignment_categories[marked_alignment.query_name] = ('PCR duplicate' if marked_alignment.is_duplicate else 'nonduplicate')
