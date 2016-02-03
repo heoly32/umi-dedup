@@ -37,7 +37,7 @@ try:
 except TypeError:
 	if args.algorithm == 'bayes':
 		umi_totals = umi_data.read_umi_counts_from_reads(in_bam, args.truncate_umi)
-		sys.stderr.write('%i\tusable alignments read\n\n' % sum(umi_totals.values()))
+		sys.stderr.write('%i\tusable alignments read\n\n' % sum(umi_totals.nonzero_values()))
 		in_bam.reset()
 	else:
 		umi_totals = None
@@ -46,7 +46,7 @@ except TypeError:
 prior = None
 if args.algorithm == 'bayes':
 	try:
-		denom = sum(umi_totals.values())
+		denom = sum(umi_totals.nonzero_values())
 		prior = collections.OrderedDict((umi, args.alpha * count / denom) for umi, count in umi_totals.iteritems())
 	except AttributeError:
 		args.algorithm = 'uniform-bayes'
@@ -71,7 +71,7 @@ out_bam.close()
 
 # report summary statistics
 if args.algorithm == 'bayes' and args.umi_table is None: # would already have reported alignments read
-	assert sum(umi_totals.values()) == dup_marker.counts['usable alignment']
+	assert sum(umi_totals.nonzero_values()) == dup_marker.counts['usable alignment']
 sys.stderr.write(
 	('%i\talignments read\n%i\tusable alignments read\n\n' % (dup_marker.counts['alignment'], dup_marker.counts['usable alignment']) if not (args.algorithm == 'bayes' and args.umi_table is None) else '') +
 	'%i\tdistinct alignments\n' % dup_marker.counts['distinct'] +

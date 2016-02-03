@@ -19,8 +19,7 @@ try: args.in_file.close()
 except AttributeError: pass # if it's a string it won't close, but that's okay because it's already garbage-collected
 
 # generate summary statistics
-sys.stderr.write('%i UMIs read\n' % sum(umi_totals.values()))
-for umi in umi_data.make_umi_list(len(umi_totals.keys()[0])):
-	args.out_file.write('%s\t%i\n' % (umi, umi_totals[umi]))
+sys.stderr.write('%i UMIs read\n' % sum(umi_totals.nonzero_itervalues()))
+for umi, count in umi_totals.iteritems():	args.out_file.write('%s\t%i\n' % (umi, count))
 args.out_file.close()
 

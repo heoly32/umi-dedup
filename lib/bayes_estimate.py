@@ -3,6 +3,7 @@ import numpy as np
 import collections
 import MCMC_algorithm_pi
 import sys
+import umi_data
 
 DEFAULT_NSAMP = 1000
 DEFAULT_NTHIN = 1
@@ -13,22 +14,17 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
 
     if filter_counts:
         # Remove zeros from data, to shorten the vector
-        data = []
+        data = umi_counts.nonzero_values()
+        umi_list = umi_counts.nonzero_iterkeys()
         if uniform:
-            for value in umi_counts.values():
-                if value > 0:
-                    data.append(value)
             n = len(data)
             C_prior = [1./n] * n
         else:
-            C_prior = []
-            for key, value in umi_counts.items():
-                if value > 0:
-                    data.append(value)
-                    C_prior.append(prior[key])
+            C_prior = [prior[key] for key in umi_counts.nonzero_iterkeys()]
             n = len(data)
     else:
         data = umi_counts.values()
+        umi_list = umi_counts.iterkeys()
         n = len(data)
 
     N = sum(data)
@@ -48,15 +44,14 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
     p = computeMedian(pi_post)
     data_dedup = apportion_counts(data, round(p * sum(data)))
 
-    # Return ordered dictionary with estimated number of true molecules
-    umi_true = collections.OrderedDict()
-    for umi, raw_count, dedup in zip(umi_counts.keys(), umi_counts.values(), data_dedup):
-        if raw_count == 0:
-            umi_true[umi] = raw_count
-        else:
-            umi_true[umi] = int(round(dedup))
-            assert(umi_true[umi] > 0)
-
+    # Return UmiValues with estimated number of true molecules
+    umi_true = umi_data.UmiValues([(umi_counts.nonzero_keys()[0], 0)])
+    for umi, raw_count, dedup in zip(umi_list, data, data_dedup):
+      if raw_count != 0:
+        umi_true[umi] = int(round(dedup))
+        assert(umi_true[umi]) > 0
+      umi_true[umi] = int(round(dedup))
+    
     return umi_true
 
 def computeMedian(list):
