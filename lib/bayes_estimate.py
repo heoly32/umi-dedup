@@ -12,7 +12,7 @@ DEFAULT_ALPHA1 = 1.5
 DEFAULT_ALPHA2 = 0.1
 
 def compute_prior (umi_counts):
-  denom = sum(umi_counts.nonzero_values())
+  denom = sum(umi_counts.nonzero_itervalues())
   count_iter = umi_counts.nonzero_iteritems()
   (first_umi, first_count) = next(count_iter)
   result = umi_data.UmiValues([(first_umi, first_count / denom)])
