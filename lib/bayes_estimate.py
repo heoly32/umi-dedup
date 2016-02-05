@@ -11,19 +11,15 @@ DEFAULT_NBURN = 200
 DEFAULT_ALPHA1 = 1.5
 DEFAULT_ALPHA2 = 0.1
 
-<<<<<<< HEAD
 def compute_prior (umi_counts):
-  denom = sum(umi_counts.nonzero_values())
+  denom = sum(umi_counts.nonzero_itervalues())
   count_iter = umi_counts.nonzero_iteritems()
   (first_umi, first_count) = next(count_iter)
   result = umi_data.UmiValues([(first_umi, first_count / denom)])
   for umi, count in count_iter: result[umi] = count / denom
   return result
 
-def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, total_counts = None, prior=None, filter_counts = True):
-=======
 def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, alpha2 = DEFAULT_ALPHA2, total_counts = None, prior=None, filter_counts = True):
->>>>>>> origin/master
 
     if filter_counts:
         # Remove zeros from data, to shorten the vector
