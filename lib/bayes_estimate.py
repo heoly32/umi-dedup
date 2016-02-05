@@ -8,8 +8,10 @@ import umi_data
 DEFAULT_NSAMP = 1000
 DEFAULT_NTHIN = 1
 DEFAULT_NBURN = 200
-DEFAULT_ALPHA = 1.5
+DEFAULT_ALPHA1 = 1.5
+DEFAULT_ALPHA2 = 0.1
 
+<<<<<<< HEAD
 def compute_prior (umi_counts):
   denom = sum(umi_counts.nonzero_values())
   count_iter = umi_counts.nonzero_iteritems()
@@ -19,6 +21,9 @@ def compute_prior (umi_counts):
   return result
 
 def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, total_counts = None, prior=None, filter_counts = True):
+=======
+def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, alpha2 = DEFAULT_ALPHA2, total_counts = None, prior=None, filter_counts = True):
+>>>>>>> origin/master
 
     if filter_counts:
         # Remove zeros from data, to shorten the vector
@@ -38,7 +43,8 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
     N = sum(data)
 
     # Set priors for the different parameters
-    pi_prior = [1., 1.]
+    k = len(umi_counts.nonzero_values())
+    pi_prior = [k * alpha2, (N - k) * alpha2]
     S_prior = [1.] * n
 
     # Run Gibbs sampler
@@ -59,7 +65,7 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
         umi_true[umi] = int(round(dedup))
         assert(umi_true[umi]) > 0
       umi_true[umi] = int(round(dedup))
-    
+
     return umi_true
 
 def computeMedian(list):
