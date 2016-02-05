@@ -46,8 +46,7 @@ except TypeError:
 prior = None
 if args.algorithm == 'bayes':
 	try:
-		denom = sum(umi_totals.nonzero_values())
-		prior = collections.OrderedDict((umi, args.alpha * count / denom) for umi, count in umi_totals.iteritems())
+		prior = bayes_estimate.compute_prior(umi_totals)
 	except AttributeError:
 		args.algorithm = 'uniform-bayes'
 

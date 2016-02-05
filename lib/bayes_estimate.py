@@ -10,6 +10,14 @@ DEFAULT_NTHIN = 1
 DEFAULT_NBURN = 200
 DEFAULT_ALPHA = 1.5
 
+def compute_prior (umi_counts):
+  denom = sum(umi_counts.nonzero_values())
+  count_iter = umi_counts.nonzero_iteritems()
+  (first_umi, first_count) = next(count_iter)
+  result = umi_data.UmiValues([(first_umi, first_count / denom)])
+  for umi, count in count_iter: result[umi] = count / denom
+  return result
+
 def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, total_counts = None, prior=None, filter_counts = True):
 
     if filter_counts:
