@@ -19,7 +19,6 @@ def compute_prior (umi_counts):
   for umi, count in count_iter: result[umi] = count / denom
   return result
 
-def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, total_counts = None, prior=None, filter_counts = True):
 def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, alpha2 = DEFAULT_ALPHA2, total_counts = None, prior=None, filter_counts = True):
 
     if filter_counts:
