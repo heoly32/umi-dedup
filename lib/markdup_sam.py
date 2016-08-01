@@ -1,4 +1,5 @@
-import collections, copy, parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate
+import collections, copy
+from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate
 
 DUP_CATEGORIES = ['optical duplicate', 'PCR duplicate']
 
