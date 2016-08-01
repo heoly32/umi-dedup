@@ -1,4 +1,5 @@
-import itertools, Bio.SeqIO, umi_data
+import itertools, Bio.SeqIO
+from . import umi_data
 
 def get_umi (seq, length, before = 0, mask_pos = []):
 	'''

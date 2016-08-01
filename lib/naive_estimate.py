@@ -1,5 +1,5 @@
 from __future__ import division
-import umi_data
+from . import umi_data
 
 def estimate_p (umi_counts):
 	n_hit, n_umi = 0

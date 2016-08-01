@@ -1,9 +1,8 @@
 from __future__ import division
 import numpy as np
 import collections
-import MCMC_algorithm_pi
 import sys
-import umi_data
+from . import MCMC_algorithm_pi, umi_data
 
 DEFAULT_NSAMP = 1000
 DEFAULT_NTHIN = 1

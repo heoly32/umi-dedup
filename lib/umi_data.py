@@ -1,5 +1,6 @@
 from __future__ import division
-import collections, itertools, re, pysam, parse_sam
+import collections, itertools, re, pysam
+from . import parse_sam
 
 DEFAULT_ALPHABET = 'ACGT' # expected characters in UMI sequences
 DEFAULT_SEPARATOR = '+' # what separates the two UMIs in paired-end read names

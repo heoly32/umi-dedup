@@ -1,4 +1,5 @@
-import collections, parse_sam
+import collections
+from . import parse_sam
 
 DEFAULT_DIST = 100
 
