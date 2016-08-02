@@ -13,7 +13,7 @@ def get_umi (seq, length, before = 0, mask_pos = []):
 	if mask_pos is not None:
 		for pos, next_pos in itertools.izip_longest(mask_pos[::-1], mask_pos[-2::-1], fillvalue = None):
 			if next_pos >= pos: raise RuntimeError('mask_pos must be in ascending order')
-			umi = umi[:pos] + umi[pos:]
+			umi = umi[:pos] + umi[pos + 1:]
 		
 	return umi
 

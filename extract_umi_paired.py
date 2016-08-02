@@ -34,8 +34,8 @@ for pair1, pair2 in parse_fastq.get_read_pair_umis(
 	args.before2,
 	args.after1,
 	args.after2,
-	args.mask1,
-	args.mask2
+	[i - 1 for i in args.mask1],
+	[i - 1 for i in args.mask2]
 ):
 	args.out_file1.write(pair1[0].format('fastq'))
 	args.out_file2.write(pair2[0].format('fastq'))
