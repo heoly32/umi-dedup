@@ -1,6 +1,8 @@
 import collections, copy
 from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate
 
+def correct_sequences(x): return(x) # temporary placeholder
+
 DUP_CATEGORIES = ['optical duplicate', 'PCR duplicate']
 
 class PosTracker:
@@ -46,12 +48,14 @@ class DuplicateMarker:
 		nburn = bayes_estimate.DEFAULT_NBURN,
 		alpha2 = bayes_estimate.DEFAULT_ALPHA2,
 		prior = None,
-		filter_counts = True
+		filter_counts = True,
+		sequence_correction = False
 	):
 		self.alignments = alignments
 		self.umi_frequency = umi_frequency
 		self.optical_dist = optical_dist
 		self.truncate_umi = truncate_umi
+		self.sequence_correction = sequence_correction
 		if algorithm == 'naive':
 			self.umi_dup_function = naive_estimate.deduplicate_counts
 		elif algorithm in ('bayes', 'uniform-bayes'):
@@ -123,8 +127,9 @@ class DuplicateMarker:
 									self.counts['optical duplicate'] += 1
 
 					# second pass: mark PCR duplicates
-					alignments_by_umi = collections.defaultdict(list)
+					alignments_by_umi = collections.defaultdict(list)					
 					for this_alignment in alignments_to_dedup: alignments_by_umi[umi_data.get_umi(this_alignment.query_name, self.truncate_umi)] += [this_alignment]
+					if self.sequence_correction: alignments_by_umi = correct_sequences(alignments_by_umi) # sequence correction
 					dedup_counts = self.umi_dup_function(umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.iteritems()]))
 					for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
 						dedup_count = dedup_counts[umi]
