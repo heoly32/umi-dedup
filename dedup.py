@@ -41,7 +41,7 @@ try:
 except TypeError:
 	if args.algorithm == 'bayes':
 		umi_totals = umi_data.read_umi_counts_from_reads(in_bam, args.truncate_umi)
-		sys.stderr.write('computing priors from %i alignments\n\n' % sum(umi_totals.nonzero_values()))
+		if not args.quiet: sys.stderr.write('computing priors from %i alignments\n\n' % sum(umi_totals.nonzero_values()))
 		in_bam.reset()
 	else:
 		umi_totals = None
