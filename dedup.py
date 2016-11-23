@@ -79,7 +79,7 @@ if not args.quiet: del progress
 if args.algorithm == 'bayes' and args.umi_table is None: # would already have reported alignments read
 	assert sum(umi_totals.nonzero_values()) == dup_marker.counts['usable alignment']
 sys.stderr.write(
-	('%i\talignments read\n%i\tusable alignments read\n\n' % (dup_marker.counts['alignment'], dup_marker.counts['usable alignment']) if not (args.algorithm == 'bayes' and args.umi_table is None) else '') +
+	('%i\tusable alignments read\n\n' % (dup_marker.counts['usable alignment']) if not (args.algorithm == 'bayes' and args.umi_table is None) else '') +
 	'%i\tdistinct alignments\n' % dup_marker.counts['distinct'] +
 	('%i\toptical duplicates\n' % dup_marker.counts['optical duplicate'] if args.dist != 0 else '') +
 	'%i\tPCR duplicates\n%i\tpre-PCR duplicates rescued by UMIs\n%i\tpre-PCR duplicates rescued by algorithm\n' % tuple(dup_marker.counts[x] for x in ['PCR duplicate', 'UMI rescued', 'algorithm rescued'])
