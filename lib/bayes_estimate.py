@@ -19,6 +19,7 @@ def compute_prior (umi_counts):
   return result
 
 def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nburn=DEFAULT_NBURN, uniform=True, alpha2 = DEFAULT_ALPHA2, total_counts = None, prior=None, filter_counts = True):
+    if max(umi_counts.nonzero_values()) == 1: return(umi_counts) # shortcut when there are no duplicates
 
     if filter_counts:
         # Remove zeros from data, to shorten the vector
