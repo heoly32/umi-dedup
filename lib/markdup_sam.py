@@ -1,7 +1,8 @@
 import collections, copy
-from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate
+from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, sequence_error
 
-def correct_sequences(x): return(x) # temporary placeholder
+# Initiate sequence correction functor
+sequence_correcter = sequence_error.ClusterAndReducer()
 
 DUP_CATEGORIES = ['optical duplicate', 'PCR duplicate']
 
@@ -127,9 +128,9 @@ class DuplicateMarker:
 									self.counts['optical duplicate'] += 1
 
 					# second pass: mark PCR duplicates
-					alignments_by_umi = collections.defaultdict(list)					
+					alignments_by_umi = collections.defaultdict(list)
 					for this_alignment in alignments_to_dedup: alignments_by_umi[umi_data.get_umi(this_alignment.query_name, self.truncate_umi)] += [this_alignment]
-					if self.sequence_correction: alignments_by_umi = correct_sequences(alignments_by_umi) # sequence correction
+					if self.sequence_correction: alignments_by_umi = sequence_correcter(alignments_by_umi) # sequence correction
 					dedup_counts = self.umi_dup_function(umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.iteritems()]))
 					for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
 						dedup_count = dedup_counts[umi]

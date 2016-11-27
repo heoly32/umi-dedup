@@ -1,0 +1,10 @@
+dil5_mix[12]_umi_totals*
+*.bam
+*.pyc
+*.ipynb
+*.tsv
+*.txt
+essai.py
+*.R
+.Rhistory
+.RData
