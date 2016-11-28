@@ -23,6 +23,7 @@ parser_perf.add_argument('--truncate_umi', action = 'store', type = int, default
 parser_data.add_argument('in_file', action = 'store', nargs = '?', default = '-', help = 'input BAM')
 parser_data.add_argument('out_file', action = 'store', nargs = '?', default = '-', help = 'output BAM')
 parser_data.add_argument('-u', '--umi_table', action = 'store', type = argparse.FileType('r'), help = 'table of UMI sequences and (optional) prior frequencies')
+parser_reporting.add_argument('-s', '--stats', action = 'store_true', help = 'compute additional library stats')
 parser_reporting.add_argument('-q', '--quiet', action = 'store_true', help = 'don\'t show progress updates')
 args = parser.parse_args()
 if args.algorithm == 'bayes' and args.umi_table is None and args.in_file == '-':
@@ -76,13 +77,24 @@ out_bam.close()
 if not args.quiet: del progress
 
 # report summary statistics
+# alignment counts
 if args.algorithm == 'bayes' and args.umi_table is None: # would already have reported alignments read
-	assert sum(umi_totals.nonzero_values()) == dup_marker.counts['usable alignment']
+	assert sum(umi_totals.nonzero_values()) == dup_marker.category_counts['usable alignment']
 sys.stderr.write(
-	'%i\talignments read\n%i\tusable alignments read\n\n' % (dup_marker.counts['alignment'], dup_marker.counts['usable alignment']) +
-	'%i\tdistinct alignments\n' % dup_marker.counts['distinct'] +
-	('%i\toptical duplicates\n' % dup_marker.counts['optical duplicate'] if args.dist != 0 else '') +
-	'%i\tPCR duplicates\n%i\tpre-PCR duplicates rescued by UMIs\n%i\tpre-PCR duplicates rescued by algorithm\n' % tuple(dup_marker.counts[x] for x in ['PCR duplicate', 'UMI rescued', 'algorithm rescued'])
-)
 
+	'%i\talignments read\n%i\tusable alignments read\n\n' % (dup_marker.category_counts['alignment'], dup_marker.category_counts['usable alignment']) +
+	'%i\tdistinct alignments\n' % dup_marker.category_counts['distinct'] +
+	('%i\toptical duplicates\n' % dup_marker.category_counts['optical duplicate'] if args.dist != 0 else '') +
+	'%i\tPCR duplicates\n%i\tpre-PCR duplicates rescued by UMIs\n%i\tpre-PCR duplicates rescued by algorithm\n' % tuple(dup_marker.category_counts[x] for x in ['PCR duplicate', 'UMI rescued', 'algorithm rescued'])
+)
+# library stats
+if args.stats:
+	sys.stderr.write(
+		'\n' +
+		'%.3f\tmean position entropy before deduplication\n' % dup_marker.get_mean_pos_entropy('before') +
+		'%.3f\tmean position entropy after deduplication\n' % dup_marker.get_mean_pos_entropy('after') +
+		'%.3f\tlibrary entropy before deduplication\n' % dup_marker.get_library_entropy('before') +
+		'%.3f\tlibrary entropy after deduplication\n' % dup_marker.get_library_entropy('after') +
+		'%i\testimated library size\n' % dup_marker.estimate_library_size()
+	)
 
