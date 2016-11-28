@@ -10,7 +10,7 @@ parser_format = parser.add_argument_group('format')
 parser_alg = parser.add_argument_group('algorithm')
 parser_perf = parser.add_argument_group('performance testing')
 parser_format.add_argument('-r', '--remove', action = 'store_true', help = 'remove PCR/optical duplicates instead of marking them')
-parser_alg.add_argument('-s', '--sequence_correction', action = 'store_true', help = 'correct UMI sequences before deduplication')
+parser_alg.add_argument('-c', '--sequence_correction', action = 'store_true', help = 'correct UMI sequences before deduplication')
 parser_alg.add_argument('-d', '--dist', action = 'store', type = int, default = optical_duplicates.DEFAULT_DIST, help = 'maximum pixel distance for optical duplicates (Euclidean); set to 0 to skip optical duplicate detection')
 parser_alg.add_argument('-a', '--algorithm', action = 'store', default = 'naive', choices = ['naive', 'bayes', 'uniform-bayes'], help = 'algorithm for duplicate identification')
 parser_alg.add_argument('--nsamp', action = 'store', type = int, default = bayes_estimate.DEFAULT_NSAMP)
@@ -75,10 +75,11 @@ out_bam.close()
 if args.algorithm == 'bayes' and args.umi_table is None: # would already have reported alignments read
 	assert sum(umi_totals.nonzero_values()) == dup_marker.counts['usable alignment']
 sys.stderr.write(
-	('%i\talignments read\n%i\tusable alignments read\n\n' % (dup_marker.counts['alignment'], dup_marker.counts['usable alignment']) if not (args.algorithm == 'bayes' and args.umi_table is None) else '') +
+	('%i\talignments read\n%i\tusable alignments read\n' % (dup_marker.counts['alignment'], dup_marker.counts['usable alignment']) if not (args.algorithm == 'bayes' and args.umi_table is None) else '') +
+	'%i\tUMI sequence corrections\n' % dup_marker.counts['sequence correction'] +
+	'\n' +
 	'%i\tdistinct alignments\n' % dup_marker.counts['distinct'] +
 	('%i\toptical duplicates\n' % dup_marker.counts['optical duplicate'] if args.dist != 0 else '') +
 	'%i\tPCR duplicates\n%i\tpre-PCR duplicates rescued by UMIs\n%i\tpre-PCR duplicates rescued by algorithm\n' % tuple(dup_marker.counts[x] for x in ['PCR duplicate', 'UMI rescued', 'algorithm rescued'])
 )
-
 
