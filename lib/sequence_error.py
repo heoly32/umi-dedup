@@ -62,7 +62,7 @@ class ClusterAndReducer:
         return {umi: [umi2 for umi2 in umis if
                       hamming(umi.encode('utf-8'),
                                     umi2.encode('utf-8')) == threshold and
-                      counts[umi] >= (counts[umi2]*2)-1] for umi in umis}
+                      counts[umi] >= (counts[umi2] * 2) - 1] for umi in umis}
 
     def get_connected_components(self, umis, graph, counts):
         ''' find the connected UMIs within an adjacency dictionary'''
@@ -83,15 +83,13 @@ class ClusterAndReducer:
         ''' collapse clusters down to the UMI which accounts for the cluster
         using the adjacency dictionary and return the list of final UMIs'''
 
-        reads = []
-        final_umis = []
-        umi_counts = []
+        reads = {}
 
         for cluster in clusters:
-            parent_umi = self.get_best(cluster, counts)
-            reads.append(bundle[parent_umi]["read"])
+            parent_umi = get_best(cluster, counts)
+            reads[parent_umi] = [read for umi in cluster for read in bundle[umi]]
 
-        return reads, final_umis, umi_counts
+        return reads
 
     def __call__(self, bundle, threshold = 1):
 
@@ -102,13 +100,12 @@ class ClusterAndReducer:
             "not all umis are the same length(!):  %d - %d" % (
                 min(len_umis), max(len_umis)))
 
-        counts = {umi: bundle[umi]["count"] for umi in umis}
+        counts = {umi: len(bundle[umi]) for umi in umis}
 
         adj_list = self.get_adj_list(umis, counts, threshold)
 
         clusters = self.get_connected_components(umis, adj_list, counts)
 
-        reads, final_umis, umi_counts = self.reduce_clusters(
-            bundle, clusters, adj_list, counts)
+        reads = self.reduce_clusters(bundle, clusters, adj_list, counts)
 
-        return reads, final_umis, umi_counts
+        return reads
