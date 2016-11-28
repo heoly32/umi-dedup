@@ -1,40 +1,9 @@
 from itertools import imap
 import collections, operator
 
-def breadth_first_search(node, adj_list):
-    searched = set()
-    found = set()
-    queue = set()
-    queue.update((node,))
-    found.update((node,))
-
-    while len(queue) > 0:
-        node = (list(queue))[0]
-        found.update(adj_list[node])
-        queue.update(adj_list[node])
-        searched.update((node,))
-        queue.difference_update(searched)
-
-    return found
-
-def remove_umis(adj_list, cluster, nodes):
-    '''removes the specified nodes from the cluster and returns
-    the remaining nodes '''
-
-    # list incomprehension: for x in nodes: for node in adj_list[x]: yield node
-    nodes_to_remove = set([node
-                           for x in nodes
-                           for node in adj_list[x]] + nodes)
-
-    return cluster - nodes_to_remove
-
-def hamming(umi1, umi2):
-    assert len(umi1) == len(umi2)
-    ne = operator.ne
-    return sum(imap(ne, umi1, umi2))
-
 class ClusterAndReducer:
-    '''A functor that clusters a bundle of reads,
+    '''
+    A functor that clusters a bundle of reads,
     indentifies the parent UMIs and returns the selected reads, umis and counts
     Methods:
       ** get_adj_list ** - returns the edges connecting the UMIs
@@ -42,9 +11,28 @@ class ClusterAndReducer:
                                    using the edges in the adjacency list
       ** get_best ** - returns the parent UMI(s) in the connected_components
       ** reduce_clusters ** - loops through the connected components in a
-                              cluster and returns the unique reads. Optionally
-                              returns lists of umis and counts per umi also
+                              cluster and returns the unique reads.
     '''
+    def breadth_first_search(self, node, adj_list):
+        searched = set()
+        found = set()
+        queue = set()
+        queue.update((node,))
+        found.update((node,))
+
+        while len(queue) > 0:
+            node = (list(queue))[0]
+            found.update(adj_list[node])
+            queue.update(adj_list[node])
+            searched.update((node,))
+            queue.difference_update(searched)
+
+        return found
+
+    def hamming(self, umi1, umi2):
+        assert len(umi1) == len(umi2)
+        ne = operator.ne
+        return sum(imap(ne, umi1, umi2))
 
     def get_best(self, cluster, counts):
         ''' return the UMI with the highest counts'''
@@ -60,7 +48,7 @@ class ClusterAndReducer:
         and where the counts of the first umi is > (2 * second umi counts)-1'''
 
         return {umi: [umi2 for umi2 in umis if
-                      hamming(umi.encode('utf-8'),
+                      self.hamming(umi.encode('utf-8'),
                                     umi2.encode('utf-8')) == threshold and
                       counts[umi] >= (counts[umi2] * 2) - 1] for umi in umis}
 
@@ -72,7 +60,7 @@ class ClusterAndReducer:
 
         for node in sorted(graph, key=lambda x: counts[x], reverse=True):
             if node not in found:
-                component = breadth_first_search(node, graph)
+                component = self.breadth_first_search(node, graph)
                 found.extend(component)
                 components.append(component)
 
@@ -83,11 +71,13 @@ class ClusterAndReducer:
         ''' collapse clusters down to the UMI which accounts for the cluster
         using the adjacency dictionary and return the list of final UMIs'''
 
-        reads = {}
+        reads = []
 
         for cluster in clusters:
-            parent_umi = self.get_best(cluster, counts)
-            reads[parent_umi] = [read for umi in cluster for read in bundle[umi]]
+            # If there is only one UMI in a cluster, no need to correct anything
+            if len(cluster) > 1:
+                parent_umi = self.get_best(cluster, counts)
+                reads += [(read, parent_umi) for umi in cluster if umi != parent_umi for read in bundle[umi]]
 
         return reads
 
@@ -103,9 +93,7 @@ class ClusterAndReducer:
         counts = {umi: len(bundle[umi]) for umi in umis}
 
         adj_list = self.get_adj_list(umis, counts, threshold)
-
         clusters = self.get_connected_components(umis, adj_list, counts)
+        reads_to_modify = self.reduce_clusters(bundle, clusters, adj_list, counts)
 
-        reads = self.reduce_clusters(bundle, clusters, adj_list, counts)
-
-        return reads
+        return reads_to_modify
