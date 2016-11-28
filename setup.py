@@ -9,7 +9,7 @@ ext_modules = [Extension("lib.MCMC_algorithm", ["lib/MCMC_algorithm.pyx"],
                         include_dirs=[include_gsl_dir],
                         library_dirs=[lib_gsl_dir],
                         libraries=["gsl", "gslcblas"]),
-                        Extension("lib.MCMC_algorithm_pi", ["lib/MCMC_algorithm_pi.pyx"],
+               Extension("lib.MCMC_algorithm_pi", ["lib/MCMC_algorithm_pi.pyx"],
                         include_dirs=[include_gsl_dir],
                         library_dirs=[lib_gsl_dir],
                         libraries=["gsl", "gslcblas"])]

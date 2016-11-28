@@ -86,7 +86,7 @@ class ClusterAndReducer:
         reads = {}
 
         for cluster in clusters:
-            parent_umi = get_best(cluster, counts)
+            parent_umi = self.get_best(cluster, counts)
             reads[parent_umi] = [read for umi in cluster for read in bundle[umi]]
 
         return reads

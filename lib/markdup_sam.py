@@ -203,5 +203,7 @@ class DuplicateMarker:
 		while self.alignment_buffer: yield self.pop_buffer()
 
 		assert self.tracker_is_empty()
+		# print self.counts['usable alignment']
+		# print sum(self.counts[x] for x in ['distinct', 'optical duplicate', 'PCR duplicate', 'UMI rescued', 'algorithm rescued'])
 		assert self.counts['usable alignment'] == sum(self.counts[x] for x in ['distinct', 'optical duplicate', 'PCR duplicate', 'UMI rescued', 'algorithm rescued'])
 

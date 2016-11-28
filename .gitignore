@@ -8,3 +8,7 @@ essai.py
 *.R
 .Rhistory
 .RData
+build/*
+lib/*.so
+lib/*.o
+lib/*.c
