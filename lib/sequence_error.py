@@ -46,25 +46,23 @@ class ClusterAndReducer:
                               returns lists of umis and counts per umi also
     '''
 
-    def get_best(self, cluster, adj_list, counts):
-        ''' return the min UMI(s) need to account for cluster'''
+    def get_best(self, cluster, counts):
+        ''' return the UMI with the highest counts'''
         if len(cluster) == 1:
-            return list(cluster)
-
-        sorted_nodes = sorted(cluster, key=lambda x: counts[x],
-                              reverse=True)
-
-        for i in range(len(sorted_nodes) - 1):
-            if len(remove_umis(adj_list, cluster, sorted_nodes[:i+1])) == 0:
-                return sorted_nodes[:i+1]
+            return list(cluster)[0]
+        else:
+            sorted_nodes = sorted(cluster, key=lambda x: counts[x],
+                                  reverse=True)
+            return sorted_nodes[0]
 
     def get_adj_list(self, umis, counts, threshold = 1):
-        ''' identify all umis within hamming distance threshold'''
+        ''' identify all umis within the hamming distance threshold
+        and where the counts of the first umi is > (2 * second umi counts)-1'''
 
         return {umi: [umi2 for umi2 in umis if
                       hamming(umi.encode('utf-8'),
-                                    umi2.encode('utf-8')) <= threshold]
-                for umi in umis}
+                                    umi2.encode('utf-8')) == threshold and
+                      counts[umi] >= (counts[umi2]*2)-1] for umi in umis}
 
     def get_connected_components(self, umis, graph, counts):
         ''' find the connected UMIs within an adjacency dictionary'''
@@ -82,20 +80,16 @@ class ClusterAndReducer:
 
     def reduce_clusters(self, bundle, clusters,
                                   adj_list, counts):
-        ''' collapse clusters down to the UMI(s) which account for the cluster
+        ''' collapse clusters down to the UMI which accounts for the cluster
         using the adjacency dictionary and return the list of final UMIs'''
-
-        # TS - the "adjacency" variant of this function requires an adjacency
-        # list to identify the best umi, whereas the other variants don't
-        # As temporary solution, pass adj_list to all variants
 
         reads = []
         final_umis = []
         umi_counts = []
 
         for cluster in clusters:
-            parent_umis = self.get_best(cluster, adj_list, counts)
-            reads.extend([bundle[umi]["read"] for umi in parent_umis])
+            parent_umi = self.get_best(cluster, counts)
+            reads.append(bundle[parent_umi]["read"])
 
         return reads, final_umis, umi_counts
 
