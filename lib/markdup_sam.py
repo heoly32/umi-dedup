@@ -1,5 +1,8 @@
 import collections, copy
-from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, library_stats
+from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, sequence_error, library_stats
+
+# Initiate sequence correction functor
+sequence_correcter = sequence_error.ClusterAndReducer()
 
 DUP_CATEGORIES = ['optical duplicate', 'PCR duplicate']
 
@@ -46,12 +49,14 @@ class DuplicateMarker:
 		nburn = bayes_estimate.DEFAULT_NBURN,
 		alpha2 = bayes_estimate.DEFAULT_ALPHA2,
 		prior = None,
-		filter_counts = True
+		filter_counts = True,
+		sequence_correction = False
 	):
 		self.alignments = alignments
 		self.umi_frequency = umi_frequency
 		self.optical_dist = optical_dist
 		self.truncate_umi = truncate_umi
+		self.sequence_correction = sequence_correction
 		if algorithm == 'naive':
 			self.umi_dup_function = naive_estimate.deduplicate_counts
 		elif algorithm in ('bayes', 'uniform-bayes'):
@@ -63,12 +68,12 @@ class DuplicateMarker:
 		self.output_generator = self.get_marked_alignment()
 		self.current_reference_id = 0
 		self.most_recent_left_pos = 0
-		
+
 		# trackers for summary statistics
 		self.category_counts = collections.Counter()
 		self.pos_counts = {'before': [], 'after': []} # position hit counts before or afterdeduplication
-		
-	
+
+
 	def __iter__(self):
 		return self
 
@@ -85,14 +90,14 @@ class DuplicateMarker:
 		alignment = self.alignment_buffer.popleft()
 		start_pos = parse_sam.get_start_pos(alignment)
 		pos_data = self.pos_tracker[alignment.is_reverse][start_pos]
-		
+
 		# deduplicate reads
 		if not pos_data.deduplicated:
 			this_pos_counts_by_mate_before = [] # tracker for summary statistics
 			this_pos_counts_by_mate_after = [] # tracker for summary statistics
 			for mate_start_pos, alignments_with_this_mate in pos_data.alignments_by_mate.iteritems(): # iterate over mate start positions
 				alignments_to_dedup = copy.copy(alignments_with_this_mate)
-				
+
 				# if mate is already deduplicated, use those results
 				if mate_start_pos in pos_data.alignments_already_processed:
 					umi_counts = collections.Counter()
@@ -114,12 +119,12 @@ class DuplicateMarker:
 					for umi_nondup_count in umi_nondup_counts.values():
 						self.category_counts['UMI rescued'] += 1
 						self.category_counts['algorithm rescued'] += umi_nondup_count - 1
-					
+
 					self.category_counts['UMI rescued'] -= bool(umi_nondup_counts) # count the first read at this position as distinct
 					self.category_counts['distinct'] += bool(umi_nondup_counts)
 					self.pos_counts['before'].append(umi_counts.values())
 					self.pos_counts['after'].append(umi_nondup_counts.values())
-				
+
 				if alignments_to_dedup: # false if they had all been deduplicated already
 					alignment_categories = {} # key = alignment query_name, value = which category it is (from DUP_CATEGORIES or otherwise)
 					alignments_by_umi = collections.defaultdict(list)
@@ -138,10 +143,25 @@ class DuplicateMarker:
 									count_by_umi[umi_data.get_umi(dup_alignment.query_name)] -= 1
 									alignment_categories[dup_alignment.query_name] = 'optical duplicate'
 									self.category_counts['optical duplicate'] += 1
-					
+
 					# second pass: mark PCR duplicates
 					dedup_counts = self.umi_dup_function(count_by_umi)
 					self.pos_counts['after'].append(dedup_counts.nonzero_values())
+					if self.sequence_correction:
+						pre_correction_count = sum([len(hits) for hits in alignments_by_umi.values()])
+						alignments_with_new_umi = sequence_correcter(alignments_by_umi)
+						obsolote_umis = set()
+						for alignment, umi in alignments_with_new_umi:
+							obsolote_umis.add(umi_data.get_umi(alignment.query_name, self.truncate_umi))
+							alignments_by_umi[umi].append(alignment) #ADD ALIGNMENT
+							# for original_alignment in alignments_by_umi[umi_data.get_umi(alignment.query_name, self.truncate_umi)]:
+							# 	if original_alignment is alignment:
+							# 		alignments_by_umi[umi_data.get_umi(alignment.query_name, self.truncate_umi)].remove(original_alignment) #REMOVE ALIGNMENT
+							self.category_counts['sequence correction'] += 1
+						for umi in obsolote_umis:
+							del alignments_by_umi[umi]
+						post_correction_count = sum([len(hits) for hits in alignments_by_umi.values()])
+						assert pre_correction_count == post_correction_count
 					for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
 						dedup_count = dedup_counts[umi]
 						assert alignments_with_this_umi and dedup_count
@@ -153,13 +173,13 @@ class DuplicateMarker:
 						self.category_counts['algorithm rescued'] += dedup_count - 1
 					self.category_counts['UMI rescued'] -= bool(alignments_by_umi) # count the first read at this position as distinct
 					self.category_counts['distinct'] += bool(alignments_by_umi)
-					
+
 					# pass duplicate marking to mates
 					if mate_start_pos is not None:
 						for categorized_alignment, category in alignment_categories.iteritems():
 							categorized_alignment_umi = umi_data.get_umi(categorized_alignment)
 							self.pos_tracker[not alignment.is_reverse][mate_start_pos].alignments_already_processed[start_pos][categorized_alignment_umi][categorized_alignment] = category
-			
+
 			pos_data.deduplicated = True
 
 		# garbage collection
@@ -214,13 +234,13 @@ class DuplicateMarker:
 
 		assert self.tracker_is_empty()
 		assert self.category_counts['usable alignment'] == sum(self.category_counts[x] for x in ['distinct', 'optical duplicate', 'PCR duplicate', 'UMI rescued', 'algorithm rescued'])
-	
+
 	def get_mean_pos_entropy(self, which): # which: 'before' or 'after' deduplication
 		return library_stats.mean(library_stats.entropy(pos) for pos in self.pos_counts[which])
-	
+
 	def get_library_entropy(self, which): # which: 'before' or 'after' deduplication
 		return library_stats.entropy(map(sum, self.pos_counts[which]))
-	
+
 	def estimate_library_size(self):
 		return library_stats.estimate_library_size(self.category_counts['distinct'] + self.category_counts['UMI rescued'] + self.category_counts['algorithm rescued'], self.category_counts['usable alignment'])
 

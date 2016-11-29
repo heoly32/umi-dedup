@@ -11,6 +11,7 @@ parser_alg = parser.add_argument_group('algorithm')
 parser_perf = parser.add_argument_group('performance testing')
 parser_reporting = parser.add_argument_group('reporting')
 parser_format.add_argument('-r', '--remove', action = 'store_true', help = 'remove PCR/optical duplicates instead of marking them')
+parser_alg.add_argument('-c', '--sequence_correction', action = 'store_true', help = 'correct UMI sequences before deduplication')
 parser_alg.add_argument('-d', '--dist', action = 'store', type = int, default = optical_duplicates.DEFAULT_DIST, help = 'maximum pixel distance for optical duplicates (Euclidean); set to 0 to skip optical duplicate detection')
 parser_alg.add_argument('-a', '--algorithm', action = 'store', default = 'naive', choices = ['naive', 'bayes', 'uniform-bayes'], help = 'algorithm for duplicate identification')
 parser_alg.add_argument('--nsamp', action = 'store', type = int, default = bayes_estimate.DEFAULT_NSAMP)
@@ -66,7 +67,8 @@ dup_marker = markdup_sam.DuplicateMarker(
 	nthin = args.nthin,
 	nburn = args.nburn,
 	prior = prior,
-	filter_counts = args.filter
+	filter_counts = args.filter,
+	sequence_correction = args.sequence_correction
 )
 if not args.quiet: progress.reset()
 for alignment in dup_marker:
@@ -81,8 +83,9 @@ if not args.quiet: del progress
 if args.algorithm == 'bayes' and args.umi_table is None: # would already have reported alignments read
 	assert sum(umi_totals.nonzero_values()) == dup_marker.category_counts['usable alignment']
 sys.stderr.write(
-
 	'%i\talignments read\n%i\tusable alignments read\n\n' % (dup_marker.category_counts['alignment'], dup_marker.category_counts['usable alignment']) +
+	'%i\tUMI sequence corrections\n' % dup_marker.category_counts['sequence correction'] +
+	'\n' +
 	'%i\tdistinct alignments\n' % dup_marker.category_counts['distinct'] +
 	('%i\toptical duplicates\n' % dup_marker.category_counts['optical duplicate'] if args.dist != 0 else '') +
 	'%i\tPCR duplicates\n%i\tpre-PCR duplicates rescued by UMIs\n%i\tpre-PCR duplicates rescued by algorithm\n' % tuple(dup_marker.category_counts[x] for x in ['PCR duplicate', 'UMI rescued', 'algorithm rescued'])
@@ -97,4 +100,3 @@ if args.stats:
 		'%.3f\tlibrary entropy after deduplication\n' % dup_marker.get_library_entropy('after') +
 		'%i\testimated library size\n' % dup_marker.estimate_library_size()
 	)
-
