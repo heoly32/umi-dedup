@@ -22,7 +22,7 @@ class ProgressTrackerByPosition:
 	def update (self, alignment):
 		current_time = time.time()
 		if current_time - self.last_update_time >= self.interval:
-			progress = (sum(self.lengths[:alignment.reference_id]) + alignment.reference_start) / self.total
+			progress = (sum(self.lengths[:alignment.reference_id]) + (alignment.reference_start + 1)) / self.total # alignment.reference_start + 1 because it's 0-based, so this will create a division by 0 if you hit the very first position of the very first reference
 			elapsed_time = current_time - self.start_time
 			remaining_time = elapsed_time / progress - elapsed_time
 			sys.stderr.write('\r' + ' ' * 50 + '\r%i%% (%i s remaining)' % (100 * progress, remaining_time))
