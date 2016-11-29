@@ -133,8 +133,9 @@ class DuplicateMarker:
 							for dup_alignment in umi_data.mark_duplicates(opt_dups, len(opt_dups) - 1):
 								# remove duplicate reads from the tracker so they won't be considered later (they're still in the read buffer)
 								if dup_alignment.is_duplicate:
-									alignments_by_umi[umi_data.get_umi(dup_alignment)].remove(dup_alignment)
-									count_by_umi[umi_data.get_umi(dup_alignment)] -= 1
+									alignments_by_umi[umi_data.get_umi(dup_alignment.query_name)].remove(dup_alignment)
+									if len(alignments_by_umi[umi_data.get_umi(dup_alignment.query_name)]) == 0: del alignments_by_umi[umi_data.get_umi(dup_alignment.query_name)]
+									count_by_umi[umi_data.get_umi(dup_alignment.query_name)] -= 1
 									alignment_categories[dup_alignment.query_name] = 'optical duplicate'
 									self.category_counts['optical duplicate'] += 1
 					
