@@ -61,13 +61,8 @@ class ClusterAndReducer:
         for node in sorted(graph, key=lambda x: counts[x], reverse=True):
             if node not in found:
                 component = self.breadth_first_search(node, graph)
-                if len(found & component) != 0:
-                    for previous_component in components:
-                        if len(component & previous_component) != 0:
-                            components[components.index(previous_component)].update(component)
-                else:
-                    components.append(component)
                 found.update(component)
+                components.append(component)
 
         return components
 
@@ -76,6 +71,18 @@ class ClusterAndReducer:
         ''' collapse clusters down to the UMI which accounts for the cluster
         using the adjacency dictionary and return the list of final UMIs'''
 
+        # First make sure UMIs are assigned to only one cluster
+        for umi in bundle.keys():
+            parent_clusters = filter(lambda x: (x & set([umi])) != set(), clusters)
+            if len(parent_clusters) > 1:
+                # Reassign to cluster whose representative has highest count
+                cluster_reps = [self.get_best(cluster, counts) for cluster in parent_clusters]
+                index_rep = cluster_reps.index(max(cluster_reps))
+                for i in range(len(cluster_reps)):
+                    if i != index_rep:
+                        clusters[clusters.index(parent_clusters[i])].remove(umi)
+
+        # Second identify alignments to reassign
         reads = []
 
         for cluster in clusters:

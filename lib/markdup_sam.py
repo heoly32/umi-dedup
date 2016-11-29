@@ -131,6 +131,7 @@ class DuplicateMarker:
 					alignments_by_umi = collections.defaultdict(list)
 					for this_alignment in alignments_to_dedup: alignments_by_umi[umi_data.get_umi(this_alignment.query_name, self.truncate_umi)] += [this_alignment]
 					if self.sequence_correction:
+						pre_correction_count = sum([len(hits) for hits in alignments_by_umi.values()])
 						alignments_with_new_umi = sequence_correcter(alignments_by_umi)
 						obsolote_umis = set()
 						for alignment, umi in alignments_with_new_umi:
@@ -142,6 +143,8 @@ class DuplicateMarker:
 							self.counts['sequence correction'] += 1
 						for umi in obsolote_umis:
 							del alignments_by_umi[umi]
+						post_correction_count = sum([len(hits) for hits in alignments_by_umi.values()])
+						assert pre_correction_count == post_correction_count
 					dedup_counts = self.umi_dup_function(umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.iteritems()]))
 					for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
 						dedup_count = dedup_counts[umi]
