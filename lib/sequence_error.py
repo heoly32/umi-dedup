@@ -55,14 +55,19 @@ class ClusterAndReducer:
     def get_connected_components(self, umis, graph, counts):
         ''' find the connected UMIs within an adjacency dictionary'''
 
-        found = list()
+        found = set()
         components = list()
 
         for node in sorted(graph, key=lambda x: counts[x], reverse=True):
             if node not in found:
                 component = self.breadth_first_search(node, graph)
-                found.extend(component)
-                components.append(component)
+                if len(found & component) != 0:
+                    for previous_component in components:
+                        if len(component & previous_component) != 0:
+                            components[components.index(previous_component)].update(component)
+                else:
+                    components.append(component)
+                found.update(component)
 
         return components
 

@@ -132,11 +132,16 @@ class DuplicateMarker:
 					for this_alignment in alignments_to_dedup: alignments_by_umi[umi_data.get_umi(this_alignment.query_name, self.truncate_umi)] += [this_alignment]
 					if self.sequence_correction:
 						alignments_with_new_umi = sequence_correcter(alignments_by_umi)
+						obsolote_umis = set()
 						for alignment, umi in alignments_with_new_umi:
+							obsolote_umis.add(umi_data.get_umi(alignment.query_name, self.truncate_umi))
 							alignments_by_umi[umi].append(alignment) #ADD ALIGNMENT
-							alignments_by_umi[umi_data.get_umi(alignment.query_name, self.truncate_umi)].remove(alignment) #REMOVE ALIGNMENT
+							# for original_alignment in alignments_by_umi[umi_data.get_umi(alignment.query_name, self.truncate_umi)]:
+							# 	if original_alignment is alignment:
+							# 		alignments_by_umi[umi_data.get_umi(alignment.query_name, self.truncate_umi)].remove(original_alignment) #REMOVE ALIGNMENT
 							self.counts['sequence correction'] += 1
-						# sequence correction
+						for umi in obsolote_umis:
+							del alignments_by_umi[umi]
 					dedup_counts = self.umi_dup_function(umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.iteritems()]))
 					for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
 						dedup_count = dedup_counts[umi]
@@ -209,8 +214,5 @@ class DuplicateMarker:
 		while self.alignment_buffer: yield self.pop_buffer()
 
 		assert self.tracker_is_empty()
-		print self.counts['usable alignment']
-		print self.counts['sequence correction']
-		print sum(self.counts[x] for x in ['distinct', 'optical duplicate', 'PCR duplicate', 'UMI rescued', 'algorithm rescued'])
-		# assert self.counts['usable alignment'] == sum(self.counts[x] for x in ['distinct', 'optical duplicate', 'PCR duplicate', 'UMI rescued', 'algorithm rescued'])
+		assert self.counts['usable alignment'] == sum(self.counts[x] for x in ['distinct', 'optical duplicate', 'PCR duplicate', 'UMI rescued', 'algorithm rescued'])
 
