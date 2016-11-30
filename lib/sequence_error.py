@@ -1,5 +1,6 @@
 from itertools import imap
 import collections, operator
+from . import kmeans
 
 class ClusterAndReducer:
     '''
