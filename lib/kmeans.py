@@ -2,13 +2,18 @@ import numpy as np
 
 def compute_dist_matrix(graph, counts):
 
-    return None
+    distance_matrix = {}
+    for umi1 in graph.keys():
+        for umi2 in graph[umi1]:
+            distance_matrix[(umi1, umi2)] = 1 - min(counts[umi1], counts[umi2])/max(counts[umi1], counts[umi2])
+
+    return distance_matrix
 
 def cluster_points(distance_matrix, centroids):
     clusters  = {}
     for x in X:
-        closest_centroid = min([(i[0], np.linalg.norm(x-mu[i[0]]))
-                        for i in enumerate(mu)], key=lambda t:t[1])[0]
+        closest_centroid = min([(i[0], np.linalg.norm(x - mu[i[0]]))
+                        for i in enumerate(mu)], key=lambda t: t[1])[0]
         try:
             clusters[closest_centroid].add(x)
         except KeyError:

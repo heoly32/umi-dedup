@@ -67,7 +67,7 @@ class ClusterAndReducer:
     # Post-process components methods   #
     #########################
 
-    def _post_process_components_directional_(self, umis, components, counts):
+    def _post_process_components_directional_(self, umis, components, adj_list, counts):
         # Make sure UMIs are assigned to only one cluster
         for umi in umis:
             parent_clusters = filter(lambda x: (x & set([umi])) != set(), components)
@@ -81,7 +81,7 @@ class ClusterAndReducer:
 
         return components
 
-    def _post_process_components_kmeans_(self, umis, components, counts):
+    def _post_process_components_kmeans_(self, umis, components, adj_list, counts):
         # RUN k-means algorithm
         # to identify possible subclusters
 
@@ -153,7 +153,7 @@ class ClusterAndReducer:
 
         adj_list = self.get_adj_list(umis, counts, threshold)
         clusters = self.get_connected_components(umis, adj_list, counts)
-        clusters = self.post_process_components(umis, clusters, counts)
+        clusters = self.post_process_components(umis, clusters, adj_list, counts)
         reads_to_modify = self.reduce_clusters(bundle, clusters, counts)
 
         return reads_to_modify
