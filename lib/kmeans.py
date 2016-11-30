@@ -9,15 +9,14 @@ def compute_dist_matrix(graph, counts):
 
     return distance_matrix
 
-def cluster_points(distance_matrix, centroids):
+def cluster_points(distance_matrix, umis, centroids):
     clusters  = {}
-    for x in X:
-        closest_centroid = min([(i[0], np.linalg.norm(x - mu[i[0]]))
-                        for i in enumerate(mu)], key=lambda t: t[1])[0]
+    for umi in umis:
+        closest_centroid = centroids.index(min([distance_matrix[(center, umi)] for center in centroids]))
         try:
-            clusters[closest_centroid].add(x)
+            clusters[centroid[closest_centroid]].add(x)
         except KeyError:
-            clusters[closest_centroid] = set([x])
+            clusters[centroid[closest_centroid]] = set([x])
     return clusters
 
 def reevaluate_centers(centroids, clusters):
@@ -27,7 +26,7 @@ def reevaluate_centers(centroids, clusters):
     return new_centroids
 
 def has_converged(centroids, old_centroids):
-    return (set([tuple(a) for a in centroids]) == set([tuple(a) for a in old_centroids]))
+    return (set(centroids) == set(old_centroids))
 
 def find_clusters(graph, k):
     # Initialize to k random centers
