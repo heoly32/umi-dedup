@@ -50,7 +50,7 @@ class DuplicateMarker:
 		alpha2 = bayes_estimate.DEFAULT_ALPHA2,
 		prior = None,
 		filter_counts = True,
-		sequence_correction = False
+		sequence_correction = None
 	):
 		self.alignments = alignments
 		self.umi_frequency = umi_frequency
@@ -68,6 +68,10 @@ class DuplicateMarker:
 		self.output_generator = self.get_marked_alignment()
 		self.current_reference_id = 0
 		self.most_recent_left_pos = 0
+
+		# Initiate sequence correction functor
+		if sequence_correction is not None:
+			sequence_correcter = sequence_error.ClusterAndReducer(sequence_correction)
 
 		# trackers for summary statistics
 		self.category_counts = collections.Counter()
@@ -148,9 +152,10 @@ class DuplicateMarker:
 					# second pass: mark PCR duplicates
 					dedup_counts = self.umi_dup_function(count_by_umi)
 					self.pos_counts['after'].append(dedup_counts.nonzero_values())
-					if self.sequence_correction:
+					if self.sequence_correction is not None:
+						pre_correction_dict = {umi: len(hits) for umi, hits in alignments_by_umi.iteritems()}
 						pre_correction_count = sum([len(hits) for hits in alignments_by_umi.values()])
-						alignments_with_new_umi = sequence_correcter(alignments_by_umi)
+						alignments_with_new_umi, first_clusters, second_clusters = sequence_correcter(alignments_by_umi)
 						obsolote_umis = set()
 						for alignment, umi in alignments_with_new_umi:
 							obsolote_umis.add(umi_data.get_umi(alignment.query_name, self.truncate_umi))
@@ -163,6 +168,13 @@ class DuplicateMarker:
 							del alignments_by_umi[umi]
 						post_correction_count = sum([len(hits) for hits in alignments_by_umi.values()])
 						assert pre_correction_count == post_correction_count
+						# except AssertionError:
+						# 	print first_clusters
+						# 	print second_clusters
+						# 	print "\n"
+						# 	print pre_correction_dict
+						# 	print {umi: len(hits) for umi, hits in alignments_by_umi.iteritems()}
+						# 	print "\n* * * * *\n"
 					for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
 						dedup_count = dedup_counts[umi]
 						assert alignments_with_this_umi and dedup_count
