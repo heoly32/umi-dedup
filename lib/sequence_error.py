@@ -37,6 +37,32 @@ class ClusterAndReducer:
 
         return found
 
+    # def breadth_first_search(self, node, adj_list):
+    #     # Try to use real queues instead of sets
+    #     #print node
+    #     searched = set()
+    #     found = set()
+    #     queue = collections.deque()
+    #     queue.append(node)
+    #     found.add(node)
+
+    #     #print adj_list
+    #     while queue:
+    #         node = queue.popleft()
+    #         if node not in searched:
+    #             searched.add(node)
+    #             queue.extend(adj_list[node] - searched)
+    #         # print node
+    #         # print adj_list[node]
+    #         # found.update(adj_list[node])
+    #         # queue.append(adj_list[node])
+    #         # searched.update((node,))
+    #         # print adj_list[node] - searched
+    #         # queue.extend(list(adj_list[node] - searched))
+    #         #print "*****"
+
+    #     return found
+
     ##################
     # Compute graph methods #
     ##################
@@ -45,18 +71,15 @@ class ClusterAndReducer:
         ''' identify all umis within the hamming distance threshold
         and where the counts of the first umi is > (2 * second umi counts)-1'''
 
-        return {umi: [umi2 for umi2 in umis if
-                      kmeans.hamming(umi.encode('utf-8'),
-                                    umi2.encode('utf-8')) == threshold and
-                      counts[umi] >= (counts[umi2] * 2) - 1] for umi in umis}
+        return {umi: set([umi2 for umi2 in umis if
+                      kmeans.hamming(umi, umi2) == threshold and
+                      counts[umi] >= (counts[umi2] * 2) - 1]) for umi in umis}
 
     def _get_adj_list_kmeans_(self, umis, counts, threshold):
-        ''' identify all umis within the hamming distance threshold
-        and where the counts of the first umi is > (2 * second umi counts)-1'''
+        ''' identify all umis within the hamming distance threshold'''
 
-        return {umi: [umi2 for umi2 in umis if
-                      kmeans.hamming(umi.encode('utf-8'),
-                                    umi2.encode('utf-8')) == threshold] for umi in umis}
+        return {umi: set([umi2 for umi2 in umis if
+                      kmeans.hamming(umi, umi2) == threshold]) for umi in umis}
 
     #########################
     # Post-process components methods   #
@@ -153,17 +176,22 @@ class ClusterAndReducer:
     def __call__(self, bundle, threshold = 1):
 
         umis = bundle.keys()
+        if len(umis) == 1:
+            return None
+        else:
+            len_umis = [len(x) for x in umis]
+            assert max(len_umis) == min(len_umis), (
+                "not all umis are the same length(!):  %d - %d" % (
+                    min(len_umis), max(len_umis)))
 
-        len_umis = [len(x) for x in umis]
-        assert max(len_umis) == min(len_umis), (
-            "not all umis are the same length(!):  %d - %d" % (
-                min(len_umis), max(len_umis)))
+            counts = {umi: len(bundle[umi]) for umi in umis}
 
-        counts = {umi: len(bundle[umi]) for umi in umis}
+            adj_list = self.get_adj_list(umis, counts, threshold)
+            if filter(lambda x: len(x) != 0, adj_list.values()) == []:
+                return None
+            else:
+                first_clusters = self.get_connected_components(umis, adj_list, counts)
+                second_clusters = self.post_process_components(umis, first_clusters, adj_list, counts)
+                reads_to_modify = self.reduce_clusters(bundle, second_clusters, counts)
 
-        adj_list = self.get_adj_list(umis, counts, threshold)
-        first_clusters = self.get_connected_components(umis, adj_list, counts)
-        second_clusters = self.post_process_components(umis, first_clusters, adj_list, counts)
-        reads_to_modify = self.reduce_clusters(bundle, second_clusters, counts)
-
-        return reads_to_modify, first_clusters, second_clusters
+                return reads_to_modify

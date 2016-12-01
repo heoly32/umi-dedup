@@ -10,8 +10,8 @@ class DistanceMatrix:
     '''Create object that store distance matrices'''
 
     def __init__(self, graph, counts):
-        self.distances = {(umi1, umi2): min(counts[umi1], counts[umi2])/max(counts[umi1], counts[umi2]) * hamming(umi1.encode('utf-8'),
-                                                                                                                  umi2.encode('utf-8')) for umi1, umi2 in combinations(graph.keys(), 2)}
+        self.distances = {(umi1, umi2): min(counts[umi1], counts[umi2])/max(counts[umi1], counts[umi2]) * hamming(umi1,
+                                                                                                                  umi2) for umi1, umi2 in combinations(graph.keys(), 2)}
 
     def get_distance(self, umi1, umi2):
         if umi1 == umi2:
