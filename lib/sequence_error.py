@@ -87,12 +87,13 @@ class ClusterAndReducer:
                 # restrict both counts and adj_list to the UMIs that appear in cluster
                 counts_restricted = {umi: counts[umi] for umi in cluster}
                 adj_list_restricted = {umi: adj_list[umi] for umi in cluster}
-
-                new_clusters = kmeans.find_clusters(adj_list_restricted,
-                                                    counts_restricted, k=1)
-
-                for new_cluster in new_clusters:
+                if max(counts_restricted.values()) - min(counts_restricted.values()) < 1 and (len(cluster) - 1)/(4 * len(counts_restricted.keys()[1])) < 0.001:
                     new_components.append(cluster)
+                else:
+                    new_clusters = kmeans.find_clusters(adj_list_restricted,
+                                                        counts_restricted, k=2)
+                    for new_cluster in new_clusters.values():
+                        new_components.append(new_cluster)
 
         return new_components
 
@@ -161,8 +162,8 @@ class ClusterAndReducer:
         counts = {umi: len(bundle[umi]) for umi in umis}
 
         adj_list = self.get_adj_list(umis, counts, threshold)
-        clusters = self.get_connected_components(umis, adj_list, counts)
-        clusters = self.post_process_components(umis, clusters, adj_list, counts)
-        reads_to_modify = self.reduce_clusters(bundle, clusters, counts)
+        first_clusters = self.get_connected_components(umis, adj_list, counts)
+        second_clusters = self.post_process_components(umis, first_clusters, adj_list, counts)
+        reads_to_modify = self.reduce_clusters(bundle, second_clusters, counts)
 
-        return reads_to_modify
+        return reads_to_modify, first_clusters, second_clusters

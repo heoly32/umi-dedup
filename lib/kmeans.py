@@ -1,5 +1,5 @@
 from itertools import imap, combinations
-import collections, operator, random
+import collections, operator
 
 def hamming(umi1, umi2):
         assert len(umi1) == len(umi2)
@@ -25,12 +25,17 @@ class DistanceMatrix:
 def cluster_points(distance_matrix, umis, centroids):
     clusters  = {}
     for umi in umis:
-        distances = [distance_matrix.get_distance(center, umi) for center in centroids]
-        closest_centroid = distances.index(min(distances))
+        if umi in centroids:
+            identified_centroid = umi
+        else:
+            # print [(center, umi) for center in centroids]
+            distances = [distance_matrix.get_distance(center, umi) for center in centroids]
+            closest_centroid = distances.index(min(distances))
+            identified_centroid = centroids[closest_centroid]
         try:
-            clusters[centroids[closest_centroid]].add(umi)
+            clusters[identified_centroid].add(umi)
         except KeyError:
-            clusters[centroids[closest_centroid]] = set([umi])
+            clusters[identified_centroid] = set([umi])
     return clusters
 
 def reevaluate_centers(centroids, clusters, counts):
@@ -48,8 +53,9 @@ def has_converged(centroids, old_centroids):
 def find_clusters(graph, counts, k):
     # Initialize to k random centers
     umis = graph.keys()
-    old_centroids = random.sample(graph, k)
-    centroids = random.sample(graph, k)
+    sorted_counts = sorted(counts, key = lambda x: counts[x], reverse = True)
+    old_centroids = sorted_counts[len(counts) - k:]
+    centroids = sorted_counts[0:k]
     clusters = {"graph": set(umis)}
 
     # print centroids, old_centroids
