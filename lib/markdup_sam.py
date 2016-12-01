@@ -138,9 +138,10 @@ class DuplicateMarker:
 							for dup_alignment in umi_data.mark_duplicates(opt_dups, len(opt_dups) - 1):
 								# remove duplicate reads from the tracker so they won't be considered later (they're still in the read buffer)
 								if dup_alignment.is_duplicate:
-									alignments_by_umi[umi_data.get_umi(dup_alignment.query_name)].remove(dup_alignment)
-									if len(alignments_by_umi[umi_data.get_umi(dup_alignment.query_name)]) == 0: del alignments_by_umi[umi_data.get_umi(dup_alignment.query_name)]
-									count_by_umi[umi_data.get_umi(dup_alignment.query_name)] -= 1
+									dup_umi = umi_data.get_umi(dup_alignment.query_name, self.truncate_umi)
+									alignments_by_umi[dup_umi].remove(dup_alignment)
+									if len(alignments_by_umi[dup_umi]) == 0: del alignments_by_umi[dup_umi]
+									count_by_umi[dup_umi] -= 1
 									alignment_categories[dup_alignment.query_name] = 'optical duplicate'
 									self.category_counts['optical duplicate'] += 1
 
@@ -177,7 +178,7 @@ class DuplicateMarker:
 					# pass duplicate marking to mates
 					if mate_start_pos is not None:
 						for categorized_alignment, category in alignment_categories.iteritems():
-							categorized_alignment_umi = umi_data.get_umi(categorized_alignment)
+							categorized_alignment_umi = umi_data.get_umi(categorized_alignment, self.truncate_umi)
 							self.pos_tracker[not alignment.is_reverse][mate_start_pos].alignments_already_processed[start_pos][categorized_alignment_umi][categorized_alignment] = category
 
 			pos_data.deduplicated = True
