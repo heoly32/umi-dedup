@@ -37,11 +37,6 @@ class ClusterAndReducer:
 
         return found
 
-    def hamming(self, umi1, umi2):
-        assert len(umi1) == len(umi2)
-        ne = operator.ne
-        return sum(imap(ne, umi1, umi2))
-
     ##################
     # Compute graph methods #
     ##################
@@ -51,7 +46,7 @@ class ClusterAndReducer:
         and where the counts of the first umi is > (2 * second umi counts)-1'''
 
         return {umi: [umi2 for umi2 in umis if
-                      self.hamming(umi.encode('utf-8'),
+                      kmeans.hamming(umi.encode('utf-8'),
                                     umi2.encode('utf-8')) == threshold and
                       counts[umi] >= (counts[umi2] * 2) - 1] for umi in umis}
 
@@ -60,7 +55,7 @@ class ClusterAndReducer:
         and where the counts of the first umi is > (2 * second umi counts)-1'''
 
         return {umi: [umi2 for umi2 in umis if
-                      self.hamming(umi.encode('utf-8'),
+                      kmeans.hamming(umi.encode('utf-8'),
                                     umi2.encode('utf-8')) == threshold] for umi in umis}
 
     #########################
@@ -84,8 +79,22 @@ class ClusterAndReducer:
     def _post_process_components_kmeans_(self, umis, components, adj_list, counts):
         # RUN k-means algorithm
         # to identify possible subclusters
+        new_components = []
+        for cluster in components:
+            if len(cluster) == 1:
+                new_components.append(cluster)
+            else:
+                # restrict both counts and adj_list to the UMIs that appear in cluster
+                counts_restricted = {umi: counts[umi] for umi in cluster}
+                adj_list_restricted = {umi: adj_list[umi] for umi in cluster}
 
-        return components
+                new_clusters = kmeans.find_clusters(adj_list_restricted,
+                                                    counts_restricted, k=1)
+
+                for new_cluster in new_clusters:
+                    new_components.append(cluster)
+
+        return new_components
 
     ##########################
     # Methods common to both approaches #
@@ -128,7 +137,7 @@ class ClusterAndReducer:
         return reads
 
     # Initialization step
-    def __init__(self, cluster_method="directional"):
+    def __init__(self, cluster_method="kmeans"):
         ''' select the required class methods for the cluster_method'''
 
         if cluster_method == "directional":
