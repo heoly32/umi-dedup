@@ -9,11 +9,10 @@ def are_optical_duplicates (coords1, coords2, max_dist):
 def get_optical_duplicates (reads, max_dist): # return a list where each element is a list of the reads that are optical duplicates of each other (each read is within max_dist of at least one other read in the set)
 	coords_by_tile = {} # group reads by which tile they came from; each value is another dictionary, in which the key is the coordinates and the value is the read itself
 	for read in reads:
-		coords = parse_sam.get_coords(read)
 		try:
-			coords_by_tile[coords.tile] += [(read, coords)]
+			coords_by_tile[read.cluster_coords.tile] += [(read, read.cluster_coords)]
 		except KeyError:
-			coords_by_tile[coords.tile] = [(read, coords)]
+			coords_by_tile[read.cluster_coords.tile] = [(read, read.cluster_coords)]
 	
 	result = [] # each element will be a list of reads that are optical duplicates of each other (within max_dist pixels)
 	for tile_reads in coords_by_tile.values():

@@ -93,14 +93,6 @@ class UmiValues:
 	def nonzero_items (self):
 		return list(self.nonzero_items())
 
-def get_umi (read_name, truncate = None):
-	for label in read_name.split(' ')[:2]: # to allow NCBI format or regular Illumina
-		if label.count(':') in (5, 7): # Casava pre-1.8: should be 5 (4 + the UMI hack); Casava 1.8+ / bcl2fastq 2.17+: should be 7 (with optional UMI field)
-			umi = label.partition('#')[0].partition('/')[0].rpartition(':')[2] # don't include the space or # and the stuff after it, if present
-			return (umi if truncate is None else umi[:truncate + umi.count(DEFAULT_SEPARATOR)]) # don't count the pair separator when truncating
-	# only get here if nothing was found
-	raise RuntimeError('read name %s does not contain UMI in expected Casava/bcl2fastq format' % label)
-
 def read_umi_counts_from_table (in_file, truncate = None):
 	result = None
 	for line in in_file:
@@ -125,7 +117,7 @@ def read_umi_counts_from_reads (in_file, truncate = None): # in_file should be a
 			read_name = read.query_name
 		except AttributeError:
 			read_name = read.id # EAFP; if this isn't found either, AttributeError is still raised
-		umi = get_umi(read_name, truncate)
+		umi = parse_sam.get_umi(read_name, truncate)
 		if not umi_is_good(umi): continue
 		try:
 			umi_totals[umi] += 1
@@ -133,14 +125,14 @@ def read_umi_counts_from_reads (in_file, truncate = None): # in_file should be a
 			umi_totals = UmiValues([(umi, 1)])
 	return umi_totals
 
-def mark_duplicates (reads, n):
+def mark_duplicates (alignments, n):
 	'''
-	mark 'n' reads from 'reads' as duplicates
-	reads to mark as the duplicates are chosen by lowest base quality
+	mark 'n' ParsedAlignment objects from 'alignments' as duplicates
+	alignments to mark as the duplicates are chosen by lowest base quality
 	'''
-	assert len(reads) >= n
+	assert len(alignments) >= n
 	if n > 0:
-		sorted_reads = sorted(reads, key = parse_sam.get_quality)
-		for i in range(n): sorted_reads[i].is_duplicate = True
-	return reads
+		sorted_alignments = sorted(alignments, key = lambda x: x.quality_sum)
+		for i in range(n): sorted_alignments[i].is_duplicate = True
+	return alignments
 
