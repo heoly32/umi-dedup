@@ -47,14 +47,14 @@ class UmiValues:
 
 	def __len__ (self):
 		return len(self.alphabet) ** self.length
-	
+
 	def is_valid (self, key):
 		return (len(key) == self.length + (self.separator_position is not None) and get_separator_position(key) == self.separator_position)
-	
+
 	def __getitem__ (self, key):
 		if not self.is_valid(key): raise KeyError(key)
 		return self.data[key]
-	
+
 	def __setitem__ (self, key, value):
 		if not self.is_valid(key): raise KeyError(key)
 		if key == 0: # delete zeroes
@@ -65,7 +65,7 @@ class UmiValues:
 		else:
 			self.data[key] = value
 
-	# standard dict functions	
+	# standard dict functions
 	def iterkeys (self):
 		return make_umi_list(self.length, self.separator_position, self.alphabet)
 	def keys (self):
@@ -78,7 +78,7 @@ class UmiValues:
 		return ((key, self.data[key]) for key in self.iterkeys())
 	def items (self):
 		return list(self.iteritems())
-	
+
 	# special dict functions for nonzero values only
 	def nonzero_iterkeys (self):
 		return (key for key in sorted(self.data.keys()) if self.data[key]) # double check in case the Counter contains zeroes

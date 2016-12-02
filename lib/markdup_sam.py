@@ -1,4 +1,5 @@
 import collections, copy
+from itertools import imap
 from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, sequence_error, library_stats
 
 # Initiate sequence correction functor
@@ -153,23 +154,20 @@ class DuplicateMarker:
 					dedup_counts = self.umi_dup_function(count_by_umi)
 					self.pos_counts['after'].append(dedup_counts.nonzero_values())
 					if self.sequence_correction is not None:
-						# pre_correction_dict = {umi: len(hits) for umi, hits in alignments_by_umi.iteritems()}
-						pre_correction_count = sum([len(hits) for hits in alignments_by_umi.values()])
+						pre_correction_count = sum(imap(len, alignments_by_umi.values()))
 						alignments_with_new_umi = self.sequence_correcter(alignments_by_umi)
-						obsolote_umis = set()
+						alignments_by_umi = self.reassign_alignments(alignments_by_umi, alignments_with_new_umi)
 						try:
 							for alignment, umi in alignments_with_new_umi:
-								obsolote_umis.add(umi_data.get_umi(alignment.query_name, self.truncate_umi))
-								alignments_by_umi[umi].append(alignment) #ADD ALIGNMENT
-								# for original_alignment in alignments_by_umi[umi_data.get_umi(alignment.query_name, self.truncate_umi)]:
-								# 	if original_alignment is alignment:
-								# 		alignments_by_umi[umi_data.get_umi(alignment.query_name, self.truncate_umi)].remove(original_alignment) #REMOVE ALIGNMENT
+								alignments_by_umi[umi].append(alignment)
 								self.category_counts['sequence correction'] += 1
+								try:
+								    del alignments_by_umi[umi_data.get_umi(alignment.query_name, self.truncate_umi)]
+								except KeyError:
+								    pass
 						except TypeError:
 							pass
-						for umi in obsolote_umis:
-							del alignments_by_umi[umi]
-						post_correction_count = sum([len(hits) for hits in alignments_by_umi.values()])
+						post_correction_count = sum(imap(len, alignments_by_umi.values()))
 						assert pre_correction_count == post_correction_count
 						# except AssertionError:
 						# 	print pre_correction_dict
@@ -256,4 +254,3 @@ class DuplicateMarker:
 
 	def estimate_library_size(self):
 		return library_stats.estimate_library_size(self.category_counts['distinct'] + self.category_counts['UMI rescued'] + self.category_counts['algorithm rescued'], self.category_counts['usable alignment'])
-

@@ -12,3 +12,6 @@ build/*
 lib/*.so
 lib/*.o
 lib/*.c
+mprofile*
+*.out
+*.cprof
