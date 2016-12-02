@@ -23,10 +23,10 @@ def make_umi_list (length, separator_position = None, alphabet = DEFAULT_ALPHABE
 
 class UmiValues:
 	def __init__ (self,
-		initial_data =				None, # should be list of (key, value) pairs
-		length =							None,
-		separator_position =	None,
-		alphabet =						DEFAULT_ALPHABET
+		initial_data =       None, # should be list of (key, value) pairs
+		length =             None,
+		separator_position = None,
+		alphabet =           DEFAULT_ALPHABET
 	):
 		self.alphabet = alphabet
 		if initial_data is not None:
@@ -41,9 +41,9 @@ class UmiValues:
 				if pair[1] != 0: self.data[pair[0]] = pair[1]
 		else:
 			assert length is not None
-			self.length =							length
-			self.separator_position =	separator_position
-			self.data =								collections.Counter()
+			self.length =             length
+			self.separator_position = separator_position
+			self.data =               collections.Counter()
 
 	def __len__ (self):
 		return len(self.alphabet) ** self.length
