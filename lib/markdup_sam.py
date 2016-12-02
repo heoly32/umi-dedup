@@ -15,15 +15,15 @@ class PosTracker:
 	__slots__ = ['alignments_by_mate', 'alignments_already_processed', 'last_alignment', 'deduplicated']
 
 	def __init__(self,
-		alignments_by_mate = None,
-		alignments_already_processed = None,
-		last_alignment = None,
-		deduplicated = False
+		alignments_by_mate =						None,
+		alignments_already_processed =	None,
+		last_alignment =								None,
+		deduplicated =									False
 	):
-		self.alignments_by_mate = alignments_by_mate if alignments_by_mate is not None else collections.defaultdict(list)
-		self.alignments_already_processed = alignments_already_processed if alignments_already_processed is not None else collections.defaultdict(lambda: collections.defaultdict(dict))
-		self.last_alignment = last_alignment
-		self.deduplicated = deduplicated
+		self.alignments_by_mate =						alignments_by_mate if alignments_by_mate is not None else collections.defaultdict(list)
+		self.alignments_already_processed =	alignments_already_processed if alignments_already_processed is not None else collections.defaultdict(lambda: collections.defaultdict(dict))
+		self.last_alignment =								last_alignment
+		self.deduplicated =									deduplicated
 
 	def __repr__(self):
 		return '%s(alignments_by_mate = %s, alignments_already_processed = %s, last_alignment = %s, deduplicated = %s)' % (self.__class__, self.alignments_by_mate, self.alignments_already_processed, self.last_alignment, self.deduplicated)
@@ -40,27 +40,37 @@ class DuplicateMarker:
 	'''
 	def __init__(self,
 		alignments,
-		umi_frequency = None,
-		algorithm = 'bayes',
-		optical_dist = optical_duplicates.DEFAULT_DIST,
-		truncate_umi = None,
-		nsamp = bayes_estimate.DEFAULT_NSAMP,
-		nthin = bayes_estimate.DEFAULT_NTHIN,
-		nburn = bayes_estimate.DEFAULT_NBURN,
-		alpha2 = bayes_estimate.DEFAULT_ALPHA2,
-		prior = None,
-		filter_counts = True,
-		sequence_correction = None
+		umi_frequency =				None,
+		algorithm =						'bayes',
+		optical_dist =				optical_duplicates.DEFAULT_DIST,
+		truncate_umi =				None,
+		nsamp =								bayes_estimate.DEFAULT_NSAMP,
+		nthin =								bayes_estimate.DEFAULT_NTHIN,
+		nburn =								bayes_estimate.DEFAULT_NBURN,
+		alpha2 =							bayes_estimate.DEFAULT_ALPHA2,
+		prior =								None,
+		filter_counts =				True,
+		sequence_correction =	None
 	):
-		self.alignments = alignments
-		self.umi_frequency = umi_frequency
-		self.optical_dist = optical_dist
-		self.truncate_umi = truncate_umi
-		self.sequence_correction = sequence_correction
+		self.alignments =						alignments
+		self.umi_frequency =				umi_frequency
+		self.optical_dist =					optical_dist
+		self.truncate_umi =					truncate_umi
+		self.sequence_correction =	sequence_correction
 		if algorithm == 'naive':
 			self.umi_dup_function = naive_estimate.deduplicate_counts
 		elif algorithm in ('bayes', 'uniform-bayes'):
-			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(umi_counts = counts, nsamp = nsamp, nthin = nthin, nburn = nburn, uniform = (algorithm == 'uniform-bayes'),  alpha2 = alpha2, total_counts = self.umi_frequency, prior = prior, filter_counts = filter_counts)
+			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(
+				umi_counts =		counts,
+				nsamp =					nsamp,
+				nthin =					nthin,
+				nburn =					nburn,
+				uniform =				(algorithm == 'uniform-bayes'),
+				alpha2 =				alpha2,
+				total_counts =	self.umi_frequency,
+				prior =					prior,
+				filter_counts =	filter_counts
+			)
 		else:
 			raise NotImplementedError
 		self.alignment_buffer = collections.deque()
@@ -160,21 +170,11 @@ class DuplicateMarker:
 						for alignment, umi in alignments_with_new_umi:
 							obsolote_umis.add(umi_data.get_umi(alignment.query_name, self.truncate_umi))
 							alignments_by_umi[umi].append(alignment) #ADD ALIGNMENT
-							# for original_alignment in alignments_by_umi[umi_data.get_umi(alignment.query_name, self.truncate_umi)]:
-							# 	if original_alignment is alignment:
-							# 		alignments_by_umi[umi_data.get_umi(alignment.query_name, self.truncate_umi)].remove(original_alignment) #REMOVE ALIGNMENT
 							self.category_counts['sequence correction'] += 1
 						for umi in obsolote_umis:
 							del alignments_by_umi[umi]
 						post_correction_count = sum([len(hits) for hits in alignments_by_umi.values()])
 						assert pre_correction_count == post_correction_count
-						# except AssertionError:
-						# 	print first_clusters
-						# 	print second_clusters
-						# 	print "\n"
-						# 	print pre_correction_dict
-						# 	print {umi: len(hits) for umi, hits in alignments_by_umi.iteritems()}
-						# 	print "\n* * * * *\n"
 					for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
 						dedup_count = dedup_counts[umi]
 						assert alignments_with_this_umi and dedup_count

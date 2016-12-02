@@ -49,10 +49,10 @@ def add_umi_to_read (read, umi, trim_length = 0):
 def get_read_umis (
 	in_file,
 	umi_length,
-	before = 0,
-	after = 0,
-	mask_pos = [],
-	relabel = True
+	before =		0,
+	after =			0,
+	mask_pos =	[],
+	relabel =		True
 ):
 	'''
 	returns a generator of pairs of Bio.SeqIO.SeqRecord objects and UMIs extracted from them
@@ -80,14 +80,14 @@ def get_read_pair_umis (
 	in_file2,
 	umi_length1,
 	umi_length2,
-	before1 = 0,
-	before2 = 0,
-	after1 = 0,
-	after2 = 0,
-	mask_pos1 = [],
-	mask_pos2 = [],
-	pair_separator = umi_data.DEFAULT_SEPARATOR,
-	relabel = True
+	before1 =					0,
+	before2 =					0,
+	after1 =					0,
+	after2 =					0,
+	mask_pos1 =				[],
+	mask_pos2 =				[],
+	pair_separator =	umi_data.DEFAULT_SEPARATOR,
+	relabel =					True
 ):
 	'''
 	returns a generator of pairs of pairs of Bio.SeqIO.SeqRecord objects and their UMIs

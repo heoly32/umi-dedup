@@ -12,12 +12,12 @@ class ProgressTrackerByPosition:
 		alignment_file,
 		interval = DEFAULT_INTERVAL
 	):
-		self.lengths = alignment_file.lengths
-		self.total = sum(self.lengths)
-		self.interval = interval
-		self.creation_time = time.time()
-		self.start_time = self.creation_time
-		self.last_update_time = self.start_time
+		self.lengths =					alignment_file.lengths
+		self.total =						sum(self.lengths)
+		self.interval =					interval
+		self.creation_time =		time.time()
+		self.start_time =				self.creation_time
+		self.last_update_time =	self.start_time
 	
 	def update (self, alignment):
 		current_time = time.time()
