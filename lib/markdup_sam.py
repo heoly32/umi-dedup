@@ -125,6 +125,12 @@ def dedup_pos(pos_data, sequence_correction = None, optical_dist = 0, *dedup_arg
 	pos_data.deduplicated = True
 	return (pos_data, category_counts)
 
+def dedup_worker(queue_to_dedup, queue_dedupped, *args, **kwargs):
+	while True:
+		pos, pos_data = queue_to_dedup.get()
+		new_pos_data = dedup_pos(pos_data, *args, **kwargs)
+		queue_dedupped.put(pos, new_pos_data)
+		queue_to_dedup.task_done()
 
 class DuplicateMarker:
 	'''
@@ -152,6 +158,12 @@ class DuplicateMarker:
 		self.alignment_buffer = collections.deque()
 		self.pos_tracker = (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker)) # data structure containing alignments by position rather than sort order; top level is by strand (0 = forward, 1 = reverse), then next level is by 5' alignment start position (dict since these will be sparse and are only looked up by identity), then next level is by 5' start position of mate alignment, and each element of that contains a variety of data; there is no level for reference ID because there is no reason to store more than one chromosome at a time
 		self.output_generator = self.get_marked_alignment()
+		self.queue_to_dedup = multiprocessing.JoinableQueue()
+		self.queue_dedupped = multiprocessing.JoinableQueue()
+		for i in range(PROCESSES):
+			p = multiprocessing.Process(target = dedup_worker, args = (self.queue_to_dedup, self.queue_dedupped, dedup_args), kwargs = dedup_kwargs)
+			p.daemon = True
+			p.start()
 		self.current_reference_id = 0
 		self.most_recent_left_pos = 0
 
