@@ -232,7 +232,7 @@ class DuplicateMarker:
 			# advance the buffer
 			while self.alignment_buffer and (
 				self.current_reference_id < alignment.reference_id or # new chromosome
-				alignment.start_pos < alignment.left_pos # oldest buffer member is now guaranteed not to get any more hits at its position
+				self.alignment_buffer[0].start_pos < alignment.left_pos # oldest buffer member is now guaranteed not to get any more hits at its position
 			): yield self.pop_buffer()
 			if alignment.reference_id > self.current_reference_id: # clear the tracker
 				assert self.tracker_is_empty()
