@@ -22,7 +22,8 @@ class PosTracker:
 		deduplicated = False
 	):
 		self.alignments_by_mate = alignments_by_mate if alignments_by_mate is not None else collections.defaultdict(list)
-		self.alignments_already_processed = alignments_already_processed if alignments_already_processed is not None else collections.defaultdict(lambda: collections.defaultdict(dict))
+#		self.alignments_already_processed = alignments_already_processed if alignments_already_processed is not None else collections.defaultdict(lambda: collections.defaultdict(dict))
+		self.alignments_already_processed = {} # test
 		self.last_alignment = last_alignment
 		self.deduplicated = deduplicated
 
@@ -129,7 +130,7 @@ def dedup_worker(queue_to_dedup, queue_dedupped, *args, **kwargs):
 	while True:
 		pos, pos_data = queue_to_dedup.get()
 		new_pos_data = dedup_pos(pos_data, *args, **kwargs)
-		queue_dedupped.put(pos, new_pos_data)
+		queue_dedupped.put((pos, new_pos_data))
 		queue_to_dedup.task_done()
 
 class DuplicateMarker:
