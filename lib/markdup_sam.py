@@ -29,7 +29,15 @@ class PosTracker:
 	def __repr__(self):
 		return '%s(alignments_by_mate = %s, alignments_already_processed = %s, last_alignment = %s, deduplicated = %s)' % (self.__class__, self.alignments_by_mate, self.alignments_already_processed, self.last_alignment, self.deduplicated)
 
-def dedup_pos(pos_data, umi_dup_function, optical_dist = 0, sequence_correction = None):
+def dedup_counts(counts, algorithm, *args, **kwargs):
+	if algorithm == 'naive':
+		return naive_estimate.deduplicate_counts(counts)
+	elif algorithm in ('bayes', 'uniform-bayes'):
+		return bayes_estimate.deduplicate_counts(umi_counts = counts, uniform = (algorithm == 'uniform-bayes'), *args, **kwargs)
+	else:
+		raise NotImplementedError
+
+def dedup_pos(pos_data, sequence_correction = None, optical_dist = 0, *dedup_args, **dedup_kwargs):
 	# trackers for summary statistics
 	category_counts = collections.Counter()
 	pos_counts = {'before': [], 'after': []}
@@ -82,8 +90,8 @@ def dedup_pos(pos_data, umi_dup_function, optical_dist = 0, sequence_correction 
 							category_counts['optical duplicate'] += 1
 
 			# second pass: mark PCR duplicates
-			dedup_counts = umi_dup_function(count_by_umi)
-			pos_counts['after'].append(dedup_counts.nonzero_values())
+			dedupped_counts = dedup_counts(count_by_umi, *dedup_args, **dedup_kwargs)
+			pos_counts['after'].append(dedupped_counts.nonzero_values())
 			if sequence_correction is not None:
 				pre_correction_dict = {umi: len(hits) for umi, hits in alignments_by_umi.iteritems()}
 				pre_correction_count = sum(map(len, alignments_by_umi.values()))
@@ -98,7 +106,7 @@ def dedup_pos(pos_data, umi_dup_function, optical_dist = 0, sequence_correction 
 				post_correction_count = sum(map(len, alignments_by_umi.values()))
 				assert pre_correction_count == post_correction_count
 			for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
-				dedup_count = dedup_counts[umi]
+				dedup_count = dedupped_counts[umi]
 				assert alignments_with_this_umi and dedup_count
 				n_dup = len(alignments_with_this_umi) - dedup_count
 				for marked_alignment in umi_data.mark_duplicates(alignments_with_this_umi, n_dup):
@@ -130,36 +138,22 @@ class DuplicateMarker:
 	'''
 	def __init__(self,
 		alignments,
-		umi_frequency = None,
-		algorithm = 'bayes',
-		optical_dist = optical_duplicates.DEFAULT_DIST,
 		truncate_umi = None,
-		nsamp = bayes_estimate.DEFAULT_NSAMP,
-		nthin = bayes_estimate.DEFAULT_NTHIN,
-		nburn = bayes_estimate.DEFAULT_NBURN,
-		alpha2 = bayes_estimate.DEFAULT_ALPHA2,
-		prior = None,
-		filter_counts = True,
-		sequence_correction = None
+		sequence_correction = None,
+		*dedup_args,
+		**dedup_kwargs
 	):
-		self.alignment_source = alignments
-		self.umi_frequency = umi_frequency
-		self.optical_dist = optical_dist
 		self.truncate_umi = truncate_umi
 		self.sequence_correction = sequence_correction
-		if algorithm == 'naive':
-			self.umi_dup_function = naive_estimate.deduplicate_counts
-		elif algorithm in ('bayes', 'uniform-bayes'):
-			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(umi_counts = counts, nsamp = nsamp, nthin = nthin, nburn = nburn, uniform = (algorithm == 'uniform-bayes'),  alpha2 = alpha2, total_counts = self.umi_frequency, prior = prior, filter_counts = filter_counts)
-		else:
-			raise NotImplementedError
+		self.dedup_args = dedup_args
+		self.dedup_kwargs = dedup_kwargs
+		self.alignment_source = alignments
 		self.raw_alignments = {}
 		self.alignment_buffer = collections.deque()
 		self.pos_tracker = (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker)) # data structure containing alignments by position rather than sort order; top level is by strand (0 = forward, 1 = reverse), then next level is by 5' read start position (dict since these will be sparse and are only looked up by identity), then next level is by 5' start position of mate read, and each element of that contains a variety of data; there is no level for reference ID because there is no reason to store more than one chromosome at a time
 		self.output_generator = self.get_marked_alignment()
 		self.current_reference_id = 0
 		self.most_recent_left_pos = 0
-		self.pool = multiprocessing.Pool(processes = PROCESSES)
 
 		# Initiate sequence correction functor
 		if sequence_correction is not None:
@@ -168,7 +162,6 @@ class DuplicateMarker:
 		# trackers for summary statistics
 		self.category_counts = collections.Counter()
 		self.pos_counts = {'before': [], 'after': []} # position hit counts before or afterdeduplication
-
 
 	def __iter__(self):
 		return self
@@ -188,7 +181,7 @@ class DuplicateMarker:
 
 		# deduplicate reads
 		if not pos_data.deduplicated:
-			pos_data, category_counts = dedup_pos(pos_data, self.umi_dup_function, self.optical_dist, self.sequence_correction)
+			pos_data, category_counts = dedup_pos(pos_data = pos_data, sequence_correction = self.sequence_correction, *self.dedup_args, **self.dedup_kwargs)
 			self.pos_tracker[alignment.is_reverse][alignment.start_pos] = pos_data
 			self.category_counts.update(category_counts)
 

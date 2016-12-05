@@ -59,7 +59,7 @@ if args.algorithm == 'bayes':
 # second pass: mark duplicates
 dup_marker = markdup_sam.DuplicateMarker(
 	alignments = in_bam,
-	umi_frequency = umi_totals,
+	total_counts = umi_totals,
 	algorithm = args.algorithm,
 	optical_dist = args.dist,
 	truncate_umi = args.truncate_umi,
