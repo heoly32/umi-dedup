@@ -65,7 +65,7 @@ def dedup_pos(pos_data, sequence_correction = None, optical_dist = 0, *dedup_arg
 				category_counts['UMI rescued'] += 1
 				category_counts['algorithm rescued'] += umi_nondup_count - 1
 
-			category_counts['UMI rescued'] -= bool(umi_nondup_counts) # count the first read at this position as distinct
+			category_counts['UMI rescued'] -= bool(umi_nondup_counts) # count the first alignment at this position as distinct
 			category_counts['distinct'] += bool(umi_nondup_counts)
 			pos_counts['before'].append(umi_counts.values())
 			pos_counts['after'].append(umi_nondup_counts.values())
@@ -81,7 +81,7 @@ def dedup_pos(pos_data, sequence_correction = None, optical_dist = 0, *dedup_arg
 			if optical_dist != 0:
 				for opt_dups in optical_duplicates.get_optical_duplicates(alignments_to_dedup, optical_dist):
 					for dup_alignment in umi_data.mark_duplicates(opt_dups, len(opt_dups) - 1):
-						# remove duplicate reads from the tracker so they won't be considered later (they're still in the read buffer)
+						# remove duplicate alignments from the tracker so they won't be considered later (they're still in the alignment buffer)
 						if dup_alignment.is_duplicate:
 							alignments_by_umi[dup_alignment.umi].remove(dup_alignment)
 							if len(alignments_by_umi[dup_alignment.umi]) == 0: del alignments_by_umi[dup_alignment.umi]
@@ -114,7 +114,7 @@ def dedup_pos(pos_data, sequence_correction = None, optical_dist = 0, *dedup_arg
 				category_counts['PCR duplicate'] += n_dup
 				category_counts['UMI rescued'] += 1
 				category_counts['algorithm rescued'] += dedup_count - 1
-			category_counts['UMI rescued'] -= bool(alignments_by_umi) # count the first read at this position as distinct
+			category_counts['UMI rescued'] -= bool(alignments_by_umi) # count the first alignment at this position as distinct
 			category_counts['distinct'] += bool(alignments_by_umi)
 
 #				# pass duplicate marking to mates DANGER DANGER THIS IS TEMPORARILY DISABLED
@@ -131,10 +131,10 @@ class DuplicateMarker:
 	a generator of duplicate-marked alignments (like pysam.AlignedSegment objects), given an iterable of alignments (like a pysam.AlignmentFile) as input
 	assumes the input iterable is sorted by leftmost coordinate (SAMtools style) and yields alignments in the same order
 	does not yield unusable alignments
-	central concept: cheat a little, detecting duplicate reads by the fact that they align to the same (start) position rather than by their sequences
-	implementation: as you traverse the coordinate-sorted input reads, add each read to both a FIFO buffer (so they can be output in the same order) and a dictionary that groups reads by strand, start position, and mate start position (None if single-end); this is not inefficient because both data structures contain pointers to the same alignment objects
+	central concept: cheat a little, detecting duplicate alignments by the fact that they align to the same (start) position rather than by their sequences
+	implementation: as you traverse the coordinate-sorted input alignments, add each alignment to both a FIFO buffer (so they can be output in the same order) and a dictionary that groups alignments by strand, start position, and mate start position (None if single-end); this is not inefficient because both data structures contain pointers to the same alignment objects
 	at the strand+position level (before mate start position), track metadata: whether this strand+position has been deduplicated and which alignment was added to it last (when this alignment is processed, the tracker can be deleted safely)
-	then, after each input read, check the left end of the buffer to tell whether the oldest read is in a position that will never accumulate any more hits (because the input is sorted by coordinate); if so, estimate the duplication at that position, mark all the reads there accordingly, then output the read with the appropriate marking
+	then, after each input alignment, check the left end of the buffer to tell whether the oldest alignment is in a position that will never accumulate any more hits (because the input is sorted by coordinate); if so, estimate the duplication at that position, mark all the alignments there accordingly, then output the alignment with the appropriate marking
 	'''
 	def __init__(self,
 		alignments,
@@ -150,7 +150,7 @@ class DuplicateMarker:
 		self.alignment_source = alignments
 		self.raw_alignments = {}
 		self.alignment_buffer = collections.deque()
-		self.pos_tracker = (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker)) # data structure containing alignments by position rather than sort order; top level is by strand (0 = forward, 1 = reverse), then next level is by 5' read start position (dict since these will be sparse and are only looked up by identity), then next level is by 5' start position of mate read, and each element of that contains a variety of data; there is no level for reference ID because there is no reason to store more than one chromosome at a time
+		self.pos_tracker = (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker)) # data structure containing alignments by position rather than sort order; top level is by strand (0 = forward, 1 = reverse), then next level is by 5' alignment start position (dict since these will be sparse and are only looked up by identity), then next level is by 5' start position of mate alignment, and each element of that contains a variety of data; there is no level for reference ID because there is no reason to store more than one chromosome at a time
 		self.output_generator = self.get_marked_alignment()
 		self.current_reference_id = 0
 		self.most_recent_left_pos = 0
@@ -179,7 +179,7 @@ class DuplicateMarker:
 		alignment = self.alignment_buffer.popleft()
 		pos_data = self.pos_tracker[alignment.is_reverse][alignment.start_pos]
 
-		# deduplicate reads
+		# deduplicate alignments
 		if not pos_data.deduplicated:
 			pos_data, category_counts = dedup_pos(pos_data = pos_data, sequence_correction = self.sequence_correction, *self.dedup_args, **self.dedup_kwargs)
 			self.pos_tracker[alignment.is_reverse][alignment.start_pos] = pos_data
@@ -193,7 +193,7 @@ class DuplicateMarker:
 		
 		return result
 
-	def tracker_is_empty(self): # verify that any remaining positions are only "already processed" reads that never appeared
+	def tracker_is_empty(self): # verify that any remaining positions are only "already processed" alignments that never appeared
 		for tracker in self.pos_tracker:
 			for pos in tracker.values():
 				if pos.alignments_by_mate or pos.last_alignment: return False
