@@ -1,10 +1,11 @@
 import collections, copy, multiprocessing
+import time
 from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, sequence_error, library_stats
 
 test = False # test
 
 # Initiate sequence correction functor
-sequence_correcter = sequence_error.ClusterAndReducer()
+#sequence_correcter = sequence_error.ClusterAndReducer()
 
 DUP_CATEGORIES = ['optical duplicate', 'PCR duplicate']
 
@@ -96,19 +97,19 @@ def dedup_pos(pos_data, sequence_correction = None, optical_dist = 0, *dedup_arg
 			# second pass: mark PCR duplicates
 			dedupped_counts = dedup_counts(count_by_umi, *dedup_args, **dedup_kwargs)
 			pos_counts['after'].append(dedupped_counts.nonzero_values())
-			if sequence_correction is not None:
-				pre_correction_dict = {umi: len(hits) for umi, hits in alignments_by_umi.iteritems()}
-				pre_correction_count = sum(map(len, alignments_by_umi.values()))
-				alignments_with_new_umi, first_clusters, second_clusters = sequence_correcter(alignments_by_umi)
-				obsolete_umis = set()
-				for alignment, umi in alignments_with_new_umi:
-					obsolete_umis.add(alignment.umi)
-					alignments_by_umi[umi].append(alignment)
-					category_counts['sequence correction'] += 1
-				for umi in obsolete_umis:
-					del alignments_by_umi[umi]
-				post_correction_count = sum(map(len, alignments_by_umi.values()))
-				assert pre_correction_count == post_correction_count
+#			if sequence_correction is not None:
+#				pre_correction_dict = {umi: len(hits) for umi, hits in alignments_by_umi.iteritems()}
+#				pre_correction_count = sum(map(len, alignments_by_umi.values()))
+#				alignments_with_new_umi, first_clusters, second_clusters = sequence_correcter(alignments_by_umi)
+#				obsolete_umis = set()
+#				for alignment, umi in alignments_with_new_umi:
+#					obsolete_umis.add(alignment.umi)
+#					alignments_by_umi[umi].append(alignment)
+#					category_counts['sequence correction'] += 1
+#				for umi in obsolete_umis:
+#					del alignments_by_umi[umi]
+#				post_correction_count = sum(map(len, alignments_by_umi.values()))
+#				assert pre_correction_count == post_correction_count
 			for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
 				dedup_count = dedupped_counts[umi]
 				assert alignments_with_this_umi and dedup_count
@@ -132,9 +133,12 @@ def dedup_pos(pos_data, sequence_correction = None, optical_dist = 0, *dedup_arg
 def dedup_worker(queue_to_dedup, queue_dedupped, *args, **kwargs):
 	while True:
 		is_reverse, pos, pos_data = queue_to_dedup.get()
+		if test: print('\t\t\tworking on %i' % pos)
+		start_time = time.clock()
 		new_pos_data = dedup_pos(pos_data, *args, **kwargs)
 		queue_dedupped.put((is_reverse, pos, new_pos_data))
 		queue_to_dedup.task_done()
+		if test: print('\t\t\tfinished %i in %f s' % (pos, time.clock() - start_time))
 
 class DuplicateMarker:
 	'''
@@ -173,8 +177,8 @@ class DuplicateMarker:
 		self.most_recent_left_pos = 0
 
 		# Initiate sequence correction functor
-		if sequence_correction is not None:
-			sequence_correcter = sequence_error.ClusterAndReducer(sequence_correction)
+#		if sequence_correction is not None:
+#			sequence_correcter = sequence_error.ClusterAndReducer(sequence_correction)
 
 		# trackers for summary statistics
 		self.category_counts = collections.Counter()
