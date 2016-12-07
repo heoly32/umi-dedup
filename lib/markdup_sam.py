@@ -220,14 +220,18 @@ class DuplicateMarker:
 					if test: print('\t\tenqueue start%i' % pos) # test
 		
 		# update the tracking data with any positions that have finished deduplication
-		if self.current_reference_id < new_reference_id:
-			self.queue_to_dedup.join() # if end of chromosome, flush all
-		while not self.queue_dedupped.empty():
-			is_reverse, pos, (pos_data, category_counts) = self.queue_dedupped.get()
+		while (
+			self.queue_dedupped._unfinished_tasks.get_value() > 0
+			) or(
+				self.current_reference_id < new_reference_id and self.queue_to_dedup._unfinished_tasks.get_value() > 0 # if this is the end of the chromosome, continue until the entire queue is processed
+			):
+			if test: print('\t\t%i tasks in work queue, %i in finished queue' % (self.queue_to_dedup._unfinished_tasks.get_value(), self.queue_dedupped._unfinished_tasks.get_value()))
+			is_reverse, pos, (pos_data, category_counts) = self.queue_dedupped.get() # this will wait until self.queue_dedupped is no longer empty, if it was empty in this cycle but we got here anyway at the end of the chromosome
 			self.pos_tracker[is_reverse][pos] = pos_data
 			self.category_counts.update(category_counts)
 			self.queue_dedupped.task_done()
 			if test: print('\t\tfinished start%i' % pos) # test
+		if test: print('\t\t%i tasks in work queue, %i in finished queue' % (self.queue_to_dedup._unfinished_tasks.get_value(), self.queue_dedupped._unfinished_tasks.get_value()))
 	
 	def tracker_is_empty(self): # verify that any remaining positions are only "already processed" alignments that never appeared
 		for tracker in self.pos_tracker:
