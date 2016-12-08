@@ -156,7 +156,6 @@ class DuplicateMarker:
 					if self.sequence_correction is not None:
 						pre_correction_count = sum(imap(len, alignments_by_umi.values()))
 						alignments_with_new_umi = self.sequence_correcter(alignments_by_umi)
-						alignments_by_umi = self.reassign_alignments(alignments_by_umi, alignments_with_new_umi)
 						try:
 							for alignment, umi in alignments_with_new_umi:
 								alignments_by_umi[umi].append(alignment)
@@ -194,6 +193,7 @@ class DuplicateMarker:
 			pos_data.deduplicated = True
 
 		# garbage collection
+		print len(self.alignment_buffer)
 		if pos_data.last_alignment is alignment:	del self.pos_tracker[alignment.is_reverse][start_pos]
 
 		return alignment
