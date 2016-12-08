@@ -212,8 +212,14 @@ class DuplicateMarker:
 					pos < new_pos # position has been passed and is now guaranteed not to get any more hits
 				) and not pos_data.queued:
 					self.pos_tracker[is_reverse][pos].queued = True
-					self.queue_to_dedup.put((is_reverse, pos, self.pos_tracker[is_reverse][pos]))
-					if test: print('\t\tenqueue start%i' % pos) # test
+					if max(map(len, self.pos_tracker[is_reverse][pos].alignments_by_mate.itervalues())) == 1: # singletons skip the queue
+						self.pos_tracker[is_reverse][pos].deduplicated = True
+						self.category_counts['distinct'] += len(self.pos_tracker[is_reverse][pos].alignments_by_mate)
+						self.pos_counts['before'] += [[1]] * len(self.pos_tracker[is_reverse][pos].alignments_by_mate)
+						self.pos_counts['after'] += [[1]] * len(self.pos_tracker[is_reverse][pos].alignments_by_mate)
+					else:
+						self.queue_to_dedup.put((is_reverse, pos, self.pos_tracker[is_reverse][pos]))
+						if test: print('\t\tenqueue start%i' % pos) # test
 		
 		# update the tracking data with any positions that have finished deduplication
 		while (
