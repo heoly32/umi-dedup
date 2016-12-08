@@ -16,15 +16,15 @@ class PosTracker:
 	__slots__ = ['alignments_by_mate', 'alignments_already_processed', 'last_alignment', 'deduplicated']
 
 	def __init__(self,
-		alignments_by_mate = None,
+		alignments_by_mate =           None,
 		alignments_already_processed = None,
-		last_alignment = None,
-		deduplicated = False
+		last_alignment =               None,
+		deduplicated =                 False
 	):
-		self.alignments_by_mate = alignments_by_mate if alignments_by_mate is not None else collections.defaultdict(list)
+		self.alignments_by_mate =           alignments_by_mate if alignments_by_mate is not None else collections.defaultdict(list)
 		self.alignments_already_processed = alignments_already_processed if alignments_already_processed is not None else collections.defaultdict(lambda: collections.defaultdict(dict))
-		self.last_alignment = last_alignment
-		self.deduplicated = deduplicated
+		self.last_alignment =               last_alignment
+		self.deduplicated =                 deduplicated
 
 	def __repr__(self):
 		return '%s(alignments_by_mate = %s, alignments_already_processed = %s, last_alignment = %s, deduplicated = %s)' % (self.__class__, self.alignments_by_mate, self.alignments_already_processed, self.last_alignment, self.deduplicated)
@@ -41,27 +41,37 @@ class DuplicateMarker:
 	'''
 	def __init__(self,
 		alignments,
-		umi_frequency = None,
-		algorithm = 'bayes',
-		optical_dist = optical_duplicates.DEFAULT_DIST,
-		truncate_umi = None,
-		nsamp = bayes_estimate.DEFAULT_NSAMP,
-		nthin = bayes_estimate.DEFAULT_NTHIN,
-		nburn = bayes_estimate.DEFAULT_NBURN,
-		alpha2 = bayes_estimate.DEFAULT_ALPHA2,
-		prior = None,
-		filter_counts = True,
+		umi_frequency =       None,
+		algorithm =           'bayes',
+		optical_dist =        optical_duplicates.DEFAULT_DIST,
+		truncate_umi =        None,
+		nsamp =               bayes_estimate.DEFAULT_NSAMP,
+		nthin =               bayes_estimate.DEFAULT_NTHIN,
+		nburn =               bayes_estimate.DEFAULT_NBURN,
+		alpha2 =              bayes_estimate.DEFAULT_ALPHA2,
+		prior =               None,
+		filter_counts =       True,
 		sequence_correction = None
 	):
-		self.alignments = alignments
-		self.umi_frequency = umi_frequency
-		self.optical_dist = optical_dist
-		self.truncate_umi = truncate_umi
+		self.alignments =          alignments
+		self.umi_frequency =       umi_frequency
+		self.optical_dist =        optical_dist
+		self.truncate_umi =        truncate_umi
 		self.sequence_correction = sequence_correction
 		if algorithm == 'naive':
 			self.umi_dup_function = naive_estimate.deduplicate_counts
 		elif algorithm in ('bayes', 'uniform-bayes'):
-			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(umi_counts = counts, nsamp = nsamp, nthin = nthin, nburn = nburn, uniform = (algorithm == 'uniform-bayes'),  alpha2 = alpha2, total_counts = self.umi_frequency, prior = prior, filter_counts = filter_counts)
+			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(
+				umi_counts =    counts,
+				nsamp =         nsamp,
+				nthin =         nthin,
+				nburn =         nburn,
+				uniform =       (algorithm == 'uniform-bayes'),
+				alpha2 =        alpha2,
+				total_counts =  self.umi_frequency,
+				prior =         prior,
+				filter_counts = filter_counts
+			)
 		else:
 			raise NotImplementedError
 		self.alignment_buffer = collections.deque()
@@ -193,7 +203,6 @@ class DuplicateMarker:
 			pos_data.deduplicated = True
 
 		# garbage collection
-		print len(self.alignment_buffer)
 		if pos_data.last_alignment is alignment:	del self.pos_tracker[alignment.is_reverse][start_pos]
 
 		return alignment
