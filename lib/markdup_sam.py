@@ -4,9 +4,6 @@ from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_est
 
 test = False # test
 
-# Initiate sequence correction functor
-#sequence_correcter = sequence_error.ClusterAndReducer()
-
 DUP_CATEGORIES = ['optical duplicate', 'PCR duplicate']
 
 class PosTracker:
@@ -42,7 +39,7 @@ def dedup_counts(counts, algorithm, *args, **kwargs):
 	else:
 		raise NotImplementedError
 
-def dedup_pos(pos_data, sequence_correction = None, optical_dist = 0, *dedup_args, **dedup_kwargs):
+def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args, **dedup_kwargs):
 	# trackers for summary statistics
 	category_counts = collections.Counter()
 	pos_counts = {'before': [], 'after': []}
@@ -97,19 +94,19 @@ def dedup_pos(pos_data, sequence_correction = None, optical_dist = 0, *dedup_arg
 			# second pass: mark PCR duplicates
 			dedupped_counts = dedup_counts(count_by_umi, *dedup_args, **dedup_kwargs)
 			pos_counts['after'].append(dedupped_counts.nonzero_values())
-#			if sequence_correction is not None:
-#				pre_correction_dict = {umi: len(hits) for umi, hits in alignments_by_umi.iteritems()}
-#				pre_correction_count = sum(map(len, alignments_by_umi.values()))
-#				alignments_with_new_umi, first_clusters, second_clusters = sequence_correcter(alignments_by_umi)
-#				obsolete_umis = set()
-#				for alignment, umi in alignments_with_new_umi:
-#					obsolete_umis.add(alignment.umi)
-#					alignments_by_umi[umi].append(alignment)
-#					category_counts['sequence correction'] += 1
-#				for umi in obsolete_umis:
-#					del alignments_by_umi[umi]
-#				post_correction_count = sum(map(len, alignments_by_umi.values()))
-#				assert pre_correction_count == post_correction_count
+			if sequence_corrector is not None:
+				pre_correction_dict = {umi: len(hits) for umi, hits in alignments_by_umi.iteritems()}
+				pre_correction_count = sum(map(len, alignments_by_umi.values()))
+				alignments_with_new_umi, first_clusters, second_clusters = sequence_corrector(alignments_by_umi)
+				obsolete_umis = set()
+				for alignment, umi in alignments_with_new_umi:
+					obsolete_umis.add(alignment.umi)
+					alignments_by_umi[umi].append(alignment)
+					category_counts['sequence correction'] += 1
+				for umi in obsolete_umis:
+					del alignments_by_umi[umi]
+				post_correction_count = sum(map(len, alignments_by_umi.values()))
+				assert pre_correction_count == post_correction_count
 			for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
 				dedup_count = dedupped_counts[umi]
 				assert alignments_with_this_umi and dedup_count
@@ -130,12 +127,13 @@ def dedup_pos(pos_data, sequence_correction = None, optical_dist = 0, *dedup_arg
 	pos_data.deduplicated = True
 	return (pos_data, category_counts)
 
-def dedup_worker(queue_to_dedup, queue_dedupped, *args, **kwargs):
+def dedup_worker(queue_to_dedup, queue_dedupped, sequence_correction, *args, **kwargs):
+	sequence_corrector = (None if sequence_correction is None else sequence_error.ClusterAndReducer(sequence_correction))
 	while True:
 		is_reverse, pos, pos_data = queue_to_dedup.get()
 		if test: print('\t\t\tworking on %i' % pos)
 		start_time = time.clock()
-		new_pos_data = dedup_pos(pos_data, *args, **kwargs)
+		new_pos_data = dedup_pos(pos_data, sequence_corrector, *args, **kwargs)
 		queue_dedupped.put((is_reverse, pos, new_pos_data))
 		queue_to_dedup.task_done()
 		if test: print('\t\t\tfinished %i in %f s' % (pos, time.clock() - start_time))
@@ -153,13 +151,11 @@ class DuplicateMarker:
 	def __init__(self,
 		alignments,
 		truncate_umi = None,
-		sequence_correction = None,
 		processes = multiprocessing.cpu_count(),
 		*dedup_args,
 		**dedup_kwargs
 	):
 		self.truncate_umi = truncate_umi
-		self.sequence_correction = sequence_correction
 		self.dedup_args = dedup_args
 		self.dedup_kwargs = dedup_kwargs
 		self.alignment_source = alignments
@@ -170,15 +166,11 @@ class DuplicateMarker:
 		self.queue_to_dedup = multiprocessing.JoinableQueue()
 		self.queue_dedupped = multiprocessing.JoinableQueue()
 		for i in range(processes):
-			p = multiprocessing.Process(target = dedup_worker, args = (self.queue_to_dedup, self.queue_dedupped, dedup_args), kwargs = dedup_kwargs)
+			p = multiprocessing.Process(target = dedup_worker, args = [self.queue_to_dedup, self.queue_dedupped] + list(dedup_args), kwargs = dedup_kwargs)
 			p.daemon = True
 			p.start()
 		self.current_reference_id = 0
 		self.most_recent_left_pos = 0
-
-		# Initiate sequence correction functor
-#		if sequence_correction is not None:
-#			sequence_correcter = sequence_error.ClusterAndReducer(sequence_correction)
 
 		# trackers for summary statistics
 		self.category_counts = collections.Counter()
