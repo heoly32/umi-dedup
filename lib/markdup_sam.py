@@ -1,5 +1,4 @@
 import collections, copy
-from itertools import imap
 from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, sequence_error, library_stats
 
 # Initiate sequence correction functor
@@ -110,7 +109,7 @@ class DuplicateMarker:
 		if not pos_data.deduplicated:
 			this_pos_counts_by_mate_before = [] # tracker for summary statistics
 			this_pos_counts_by_mate_after = [] # tracker for summary statistics
-			for mate_start_pos, alignments_with_this_mate in pos_data.alignments_by_mate.iteritems(): # iterate over mate start positions
+			for mate_start_pos, alignments_with_this_mate in pos_data.alignments_by_mate.items(): # iterate over mate start positions
 				alignments_to_dedup = copy.copy(alignments_with_this_mate)
 
 				# if mate is already deduplicated, use those results
@@ -144,7 +143,7 @@ class DuplicateMarker:
 					alignment_categories = {} # key = alignment query_name, value = which category it is (from DUP_CATEGORIES or otherwise)
 					alignments_by_umi = collections.defaultdict(list)
 					for this_alignment in alignments_to_dedup: alignments_by_umi[umi_data.get_umi(this_alignment.query_name, self.truncate_umi)] += [this_alignment]
-					count_by_umi = umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.iteritems()])
+					count_by_umi = umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.items()])
 					self.pos_counts['before'].append(count_by_umi.nonzero_values())
 
 					# first pass: mark optical duplicates
@@ -164,7 +163,7 @@ class DuplicateMarker:
 					dedup_counts = self.umi_dup_function(count_by_umi)
 					self.pos_counts['after'].append(dedup_counts.nonzero_values())
 					if self.sequence_correction is not None:
-						pre_correction_count = sum(imap(len, alignments_by_umi.values()))
+						pre_correction_count = sum(map(len, alignments_by_umi.values()))
 						alignments_with_new_umi = self.sequence_correcter(alignments_by_umi)
 						try:
 							for alignment, umi in alignments_with_new_umi:
@@ -176,13 +175,13 @@ class DuplicateMarker:
 								    pass
 						except TypeError:
 							pass
-						post_correction_count = sum(imap(len, alignments_by_umi.values()))
+						post_correction_count = sum(map(len, alignments_by_umi.values()))
 						assert pre_correction_count == post_correction_count
 						# except AssertionError:
 						# 	print pre_correction_dict
-						# 	print {umi: len(hits) for umi, hits in alignments_by_umi.iteritems()}
+						# 	print {umi: len(hits) for umi, hits in alignments_by_umi.items()}
 						# 	print "\n* * * * *\n"
-					for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
+					for umi, alignments_with_this_umi in alignments_by_umi.items():
 						dedup_count = dedup_counts[umi]
 						assert alignments_with_this_umi and dedup_count
 						n_dup = len(alignments_with_this_umi) - dedup_count
@@ -196,7 +195,7 @@ class DuplicateMarker:
 
 					# pass duplicate marking to mates
 					if mate_start_pos is not None:
-						for categorized_alignment, category in alignment_categories.iteritems():
+						for categorized_alignment, category in alignment_categories.items():
 							categorized_alignment_umi = umi_data.get_umi(categorized_alignment, self.truncate_umi)
 							self.pos_tracker[not alignment.is_reverse][mate_start_pos].alignments_already_processed[start_pos][categorized_alignment_umi][categorized_alignment] = category
 

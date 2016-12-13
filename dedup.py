@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import copy, collections, argparse, pysam, sys
 from lib import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, markdup_sam, pysam_progress
