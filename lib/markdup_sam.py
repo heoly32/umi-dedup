@@ -202,7 +202,7 @@ class DuplicateMarker:
 		if test: print('\toutput %i:left%i start:%i %s' % (alignment.reference_id, alignment.left_pos, alignment.start_pos, alignment.name)) # test
 		return result
 	
-	def dedup_until(self, new_reference_id, new_pos):
+	def test_func2(self, new_reference_id, new_pos):
 		# enqueue position data eligible for deduplication
 		if test: print('\tadvance to ref%i:left%i' % (new_reference_id, new_pos)) # test
 		for is_reverse in (0, 1):
@@ -220,6 +220,9 @@ class DuplicateMarker:
 					else:
 						self.queue_to_dedup.put((is_reverse, pos, self.pos_tracker[is_reverse][pos]))
 						if test: print('\t\tenqueue start%i' % pos) # test
+	
+	def dedup_until(self, new_reference_id, new_pos):
+		self.test_func2(new_reference_id, new_pos)
 		
 		# update the tracking data with any positions that have finished deduplication
 		while (
@@ -240,7 +243,17 @@ class DuplicateMarker:
 			for pos in tracker.values():
 				if pos.alignments_by_mate or pos.last_alignment_name: return False
 		return True
-
+	
+	def test_func1(self, alignment, raw_alignment):
+		# add the alignment to the tracking data structures
+		assert not alignment.name in self.raw_alignments
+		self.raw_alignments[alignment.name] = raw_alignment
+		self.alignment_buffer.extend([alignment])
+		self.pos_tracker[alignment.is_reverse][alignment.start_pos].alignments_by_mate[alignment.mate_start_pos] += [alignment]
+		self.pos_tracker[alignment.is_reverse][alignment.start_pos].last_alignment_name = alignment.name
+		self.most_recent_left_pos = alignment.left_pos
+		if test: print('\tadd %i:start%i' % (alignment.reference_id, alignment.start_pos)) # test
+	
 	def get_marked_alignment(self):
 		for raw_alignment in self.alignment_source:
 			alignment = parse_sam.ParsedAlignment(raw_alignment, self.truncate_umi)
@@ -272,14 +285,7 @@ class DuplicateMarker:
 				self.pos_tracker = (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker))
 				self.current_reference_id = alignment.reference_id
 
-			# add the alignment to the tracking data structures
-			assert not alignment.name in self.raw_alignments
-			self.raw_alignments[alignment.name] = raw_alignment
-			self.alignment_buffer.extend([alignment])
-			self.pos_tracker[alignment.is_reverse][alignment.start_pos].alignments_by_mate[alignment.mate_start_pos] += [alignment]
-			self.pos_tracker[alignment.is_reverse][alignment.start_pos].last_alignment_name = alignment.name
-			self.most_recent_left_pos = alignment.left_pos
-			if test: print('\tadd %i:start%i' % (alignment.reference_id, alignment.start_pos)) # test
+			self.test_func1(alignment, raw_alignment)
 
 		# flush the buffer
 		self.dedup_until(self.current_reference_id + 1, 0)
