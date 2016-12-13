@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import collections, itertools, argparse, sys, Bio.SeqIO, pysam
 from lib import umi_data
@@ -20,6 +20,6 @@ except AttributeError: pass # if it's a string it won't close, but that's okay b
 
 # generate summary statistics
 sys.stderr.write('%i UMIs read\n' % sum(umi_totals.nonzero_itervalues()))
-for umi, count in umi_totals.iteritems():	args.out_file.write('%s\t%i\n' % (umi, count))
+for umi, count in umi_totals.items():	args.out_file.write('%s\t%i\n' % (umi, count))
 args.out_file.close()
 

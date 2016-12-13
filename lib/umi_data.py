@@ -66,32 +66,20 @@ class UmiValues:
 			self.data[key] = value
 
 	# standard dict functions
-	def iterkeys (self):
-		return make_umi_list(self.length, self.separator_position, self.alphabet)
 	def keys (self):
-		return list(self.iterkeys())
-	def itervalues (self):
-		return (self.data[key] for key in self.iterkeys())
+		return make_umi_list(self.length, self.separator_position, self.alphabet)
 	def values (self):
-		return list(self.itervalues())
-	def iteritems (self):
-		return ((key, self.data[key]) for key in self.iterkeys())
+		return (self.data[key] for key in self.keys())
 	def items (self):
-		return list(self.iteritems())
-
+		return ((key, self.data[key]) for key in self.keys())
+	
 	# special dict functions for nonzero values only
-	def nonzero_iterkeys (self):
-		return (key for key in sorted(self.data.keys()) if self.data[key]) # double check in case the Counter contains zeroes
 	def nonzero_keys (self):
-		return list(self.nonzero_iterkeys())
-	def nonzero_itervalues (self):
-		return (self.data[key] for key in self.nonzero_iterkeys())
+		return (key for key in sorted(self.data.keys()) if self.data[key]) # double check in case the Counter contains zeroes
 	def nonzero_values (self):
-		return list(self.nonzero_itervalues())
-	def nonzero_iteritems (self):
-		return ((key, self.data[key]) for key in self.nonzero_iterkeys())
+		return (self.data[key] for key in self.nonzero_keys())
 	def nonzero_items (self):
-		return list(self.nonzero_items())
+		return ((key, self.data[key]) for key in self.nonzero_keys())
 
 def get_umi (read_name, truncate = None):
 	for label in read_name.split(' ')[:2]: # to allow NCBI format or regular Illumina

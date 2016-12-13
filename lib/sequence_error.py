@@ -1,4 +1,3 @@
-from itertools import imap
 import collections, operator
 from . import kmeans
 
@@ -88,7 +87,7 @@ class ClusterAndReducer:
     def _post_process_components_directional_(self, umis, components, adj_list, counts):
         # Make sure UMIs are assigned to only one cluster
         for umi in umis:
-            parent_clusters = filter(lambda x: (x & set([umi])) != set(), components)
+            parent_clusters = list(filter(lambda x: (x & set([umi])) != set(), components))
             if len(parent_clusters) > 1:
                 # Reassign to cluster whose representative has highest count
                 cluster_reps = [self.get_best(cluster, counts) for cluster in parent_clusters]
