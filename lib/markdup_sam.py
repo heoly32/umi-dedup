@@ -4,6 +4,7 @@ from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_est
 
 test = False # test
 
+
 DUP_CATEGORIES = ['optical duplicate', 'PCR duplicate']
 
 class PosTracker:
@@ -15,11 +16,11 @@ class PosTracker:
 	__slots__ = ['alignments_by_mate', 'alignments_already_processed', 'last_alignment_name', 'queued', 'deduplicated']
 
 	def __init__(self,
-		alignments_by_mate = None,
-		alignments_already_processed = None,
-		last_alignment_name = None,
-		queued = False,
-		deduplicated = False
+		alignments_by_mate =            None,
+		alignments_already_processed =  None,
+		last_alignment_name =           None,
+		queued =                        False,
+		deduplicated =                  False
 	):
 		self.alignments_by_mate = alignments_by_mate if alignments_by_mate is not None else collections.defaultdict(list)
 #		self.alignments_already_processed = alignments_already_processed if alignments_already_processed is not None else collections.defaultdict(lambda: collections.defaultdict(dict))
@@ -27,7 +28,7 @@ class PosTracker:
 		self.last_alignment_name = last_alignment_name
 		self.queued = queued
 		self.deduplicated = deduplicated
-
+	
 	def __repr__(self):
 		return '%s(alignments_by_mate = %s, alignments_already_processed = %s, last_alignment_name = %s, queued = %s, deduplicated = %s)' % (self.__class__, self.alignments_by_mate, self.alignments_already_processed, self.last_alignment_name, self.queued, self.deduplicated)
 
@@ -43,7 +44,7 @@ def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args
 	# trackers for summary statistics
 	category_counts = collections.Counter()
 	pos_counts = {'before': [], 'after': []}
-	for mate_start_pos, alignments_with_this_mate in pos_data.alignments_by_mate.iteritems(): # iterate over mate start positions
+	for mate_start_pos, alignments_with_this_mate in pos_data.alignments_by_mate.items(): # iterate over mate start positions
 		alignments_to_dedup = copy.copy(alignments_with_this_mate)
 
 		# if mate is already deduplicated, use those results
@@ -76,7 +77,7 @@ def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args
 			alignment_categories = {} # key = alignment query_name, value = which category it is (from DUP_CATEGORIES or otherwise)
 			alignments_by_umi = collections.defaultdict(list)
 			for this_alignment in alignments_to_dedup: alignments_by_umi[this_alignment.umi] += [this_alignment]
-			count_by_umi = umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.iteritems()])
+			count_by_umi = umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.items()])
 			pos_counts['before'].append(count_by_umi.nonzero_values())
 
 			# first pass: mark optical duplicates
@@ -95,7 +96,7 @@ def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args
 			dedupped_counts = dedup_counts(count_by_umi, *dedup_args, **dedup_kwargs)
 			pos_counts['after'].append(dedupped_counts.nonzero_values())
 			if sequence_corrector is not None:
-				pre_correction_dict = {umi: len(hits) for umi, hits in alignments_by_umi.iteritems()}
+				pre_correction_dict = {umi: len(hits) for umi, hits in alignments_by_umi.items()}
 				pre_correction_count = sum(map(len, alignments_by_umi.values()))
 				alignments_with_new_umi, first_clusters, second_clusters = sequence_corrector(alignments_by_umi)
 				obsolete_umis = set()
@@ -107,7 +108,7 @@ def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args
 					del alignments_by_umi[umi]
 				post_correction_count = sum(map(len, alignments_by_umi.values()))
 				assert pre_correction_count == post_correction_count
-			for umi, alignments_with_this_umi in alignments_by_umi.iteritems():
+			for umi, alignments_with_this_umi in alignments_by_umi.items():
 				dedup_count = dedupped_counts[umi]
 				assert alignments_with_this_umi and dedup_count
 				n_dup = len(alignments_with_this_umi) - dedup_count
@@ -155,16 +156,16 @@ class DuplicateMarker:
 		*dedup_args,
 		**dedup_kwargs
 	):
-		self.truncate_umi = truncate_umi
-		self.dedup_args = dedup_args
-		self.dedup_kwargs = dedup_kwargs
-		self.alignment_source = alignments
-		self.raw_alignments = {}
-		self.alignment_buffer = collections.deque()
-		self.pos_tracker = (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker)) # data structure containing alignments by position rather than sort order; top level is by strand (0 = forward, 1 = reverse), then next level is by 5' alignment start position (dict since these will be sparse and are only looked up by identity), then next level is by 5' start position of mate alignment, and each element of that contains a variety of data; there is no level for reference ID because there is no reason to store more than one chromosome at a time
-		self.output_generator = self.get_marked_alignment()
-		self.queue_to_dedup = multiprocessing.JoinableQueue()
-		self.queue_dedupped = multiprocessing.JoinableQueue()
+		self.truncate_umi =      truncate_umi
+		self.dedup_args =        dedup_args
+		self.dedup_kwargs =      dedup_kwargs
+		self.alignment_source =  alignments
+		self.raw_alignments =    {}
+		self.alignment_buffer =  collections.deque()
+		self.pos_tracker =       (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker)) # data structure containing alignments by position rather than sort order; top level is by strand (0 = forward, 1 = reverse), then next level is by 5' alignment start position (dict since these will be sparse and are only looked up by identity), then next level is by 5' start position of mate alignment, and each element of that contains a variety of data; there is no level for reference ID because there is no reason to store more than one chromosome at a time
+		self.output_generator =  self.get_marked_alignment()
+		self.queue_to_dedup =    multiprocessing.JoinableQueue()
+		self.queue_dedupped =    multiprocessing.JoinableQueue()
 		for i in range(processes):
 			p = multiprocessing.Process(target = dedup_worker, args = [self.queue_to_dedup, self.queue_dedupped] + list(dedup_args), kwargs = dedup_kwargs)
 			p.daemon = True
@@ -206,13 +207,13 @@ class DuplicateMarker:
 		# enqueue position data eligible for deduplication
 		if test: print('\tadvance to ref%i:left%i' % (new_reference_id, new_pos)) # test
 		for is_reverse in (0, 1):
-			for pos, pos_data in self.pos_tracker[is_reverse].iteritems():
+			for pos, pos_data in self.pos_tracker[is_reverse].items():
 				if (
 					self.current_reference_id < new_reference_id or # entire chromosome is done
 					pos < new_pos # position has been passed and is now guaranteed not to get any more hits
 				) and not pos_data.queued:
 					self.pos_tracker[is_reverse][pos].queued = True
-					if max(map(len, self.pos_tracker[is_reverse][pos].alignments_by_mate.itervalues())) == 1: # singletons skip the queue
+					if max(map(len, self.pos_tracker[is_reverse][pos].alignments_by_mate.values())) == 1: # singletons skip the queue
 						self.pos_tracker[is_reverse][pos].deduplicated = True
 						self.category_counts['distinct'] += len(self.pos_tracker[is_reverse][pos].alignments_by_mate)
 						self.pos_counts['before'] += [[1]] * len(self.pos_tracker[is_reverse][pos].alignments_by_mate)
@@ -302,4 +303,3 @@ class DuplicateMarker:
 
 	def estimate_library_size(self):
 		return library_stats.estimate_library_size(self.category_counts['distinct'] + self.category_counts['UMI rescued'] + self.category_counts['algorithm rescued'], self.category_counts['usable alignment'])
-

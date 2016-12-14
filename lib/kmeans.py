@@ -1,18 +1,18 @@
-from itertools import imap, combinations
+from itertools import combinations
 import collections, operator
 
 def hamming(umi1, umi2):
         assert len(umi1) == len(umi2)
         ne = operator.ne
-        return sum(imap(ne, umi1, umi2))
+        return sum(map(ne, umi1, umi2))
 
 class DistanceMatrix:
     '''Create object that store distance matrices'''
 
+    # @profile
     def __init__(self, graph, counts):
-        self.distances = {(umi1, umi2): min(counts[umi1], counts[umi2])/max(counts[umi1], counts[umi2]) * hamming(umi1.encode('utf-8'),
-                                                                                                                  umi2.encode('utf-8')) for umi1, umi2 in combinations(graph.keys(), 2)}
-
+        self.distances = {(umi1, umi2): min(counts[umi1], counts[umi2])/max(counts[umi1], counts[umi2]) * hamming(umi1,
+                                                                                                                  umi2) for umi1, umi2 in combinations(graph.keys(), 2)}
     def get_distance(self, umi1, umi2):
         if umi1 == umi2:
             return 0
@@ -21,6 +21,15 @@ class DistanceMatrix:
                 return self.distances[(umi1, umi2)]
             except KeyError:
                 return self.distances[(umi2, umi1)]
+
+    # def __init__(self, graph, counts):
+    #     self.counts = counts
+
+    # def get_distance(self, umi1, umi2):
+    #     if umi1 == umi2:
+    #         return 0
+    #     else:
+    #         min(self.counts[umi1], self.counts[umi2])/max(self.counts[umi1], self.counts[umi2]) * hamming(umi1, umi2)
 
 def cluster_points(distance_matrix, umis, centroids):
     clusters  = {}
@@ -58,8 +67,6 @@ def find_clusters(graph, counts, k):
     centroids = sorted_counts[0:k]
     clusters = {"graph": set(umis)}
 
-    # print centroids, old_centroids
-
     distance_matrix = DistanceMatrix(graph, counts)
 
     while not has_converged(centroids, old_centroids):
@@ -68,6 +75,5 @@ def find_clusters(graph, counts, k):
         clusters = cluster_points(distance_matrix, umis, centroids)
         # Reevaluate centers
         centroids = reevaluate_centers(old_centroids, clusters, counts)
-        # print centroids, old_centroids
 
     return clusters

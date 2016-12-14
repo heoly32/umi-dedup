@@ -11,7 +11,7 @@ def get_umi (seq, length, before = 0, mask_pos = []):
 	
 	umi = str(seq[before:(before + length)])
 	if mask_pos is not None:
-		for pos, next_pos in itertools.izip_longest(mask_pos[::-1], mask_pos[-2::-1], fillvalue = None):
+		for pos, next_pos in itertools.zip_longest(mask_pos[::-1], mask_pos[-2::-1], fillvalue = None):
 			if next_pos >= pos: raise RuntimeError('mask_pos must be in ascending order')
 			umi = umi[:pos] + umi[pos + 1:]
 		
@@ -49,10 +49,10 @@ def add_umi_to_read (read, umi, trim_length = 0):
 def get_read_umis (
 	in_file,
 	umi_length,
-	before = 0,
-	after = 0,
+	before =   0,
+	after =    0,
 	mask_pos = [],
-	relabel = True
+	relabel =  True
 ):
 	'''
 	returns a generator of pairs of Bio.SeqIO.SeqRecord objects and UMIs extracted from them
@@ -80,14 +80,14 @@ def get_read_pair_umis (
 	in_file2,
 	umi_length1,
 	umi_length2,
-	before1 = 0,
-	before2 = 0,
-	after1 = 0,
-	after2 = 0,
-	mask_pos1 = [],
-	mask_pos2 = [],
+	before1 =        0,
+	before2 =        0,
+	after1 =         0,
+	after2 =         0,
+	mask_pos1 =      [],
+	mask_pos2 =      [],
 	pair_separator = umi_data.DEFAULT_SEPARATOR,
-	relabel = True
+	relabel =        True
 ):
 	'''
 	returns a generator of pairs of pairs of Bio.SeqIO.SeqRecord objects and their UMIs
