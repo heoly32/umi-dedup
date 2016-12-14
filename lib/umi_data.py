@@ -23,10 +23,10 @@ def make_umi_list (length, separator_position = None, alphabet = DEFAULT_ALPHABE
 
 class UmiValues:
 	def __init__ (self,
-		initial_data = None, # should be list of (key, value) pairs
-		length = None,
+		initial_data =       None, # should be list of (key, value) pairs
+		length =             None,
 		separator_position = None,
-		alphabet = DEFAULT_ALPHABET
+		alphabet =           DEFAULT_ALPHABET
 	):
 		self.alphabet = alphabet
 		if initial_data is not None:
@@ -41,20 +41,20 @@ class UmiValues:
 				if pair[1] != 0: self.data[pair[0]] = pair[1]
 		else:
 			assert length is not None
-			self.length = length
+			self.length =             length
 			self.separator_position = separator_position
-			self.data = collections.Counter()
+			self.data =               collections.Counter()
 
 	def __len__ (self):
 		return len(self.alphabet) ** self.length
-	
+
 	def is_valid (self, key):
 		return (len(key) == self.length + (self.separator_position is not None) and get_separator_position(key) == self.separator_position)
-	
+
 	def __getitem__ (self, key):
 		if not self.is_valid(key): raise KeyError(key)
 		return self.data[key]
-	
+
 	def __setitem__ (self, key, value):
 		if not self.is_valid(key): raise KeyError(key)
 		if key == 0: # delete zeroes
@@ -65,33 +65,21 @@ class UmiValues:
 		else:
 			self.data[key] = value
 
-	# standard dict functions	
-	def iterkeys (self):
-		return make_umi_list(self.length, self.separator_position, self.alphabet)
+	# standard dict functions
 	def keys (self):
-		return list(self.iterkeys())
-	def itervalues (self):
-		return (self.data[key] for key in self.iterkeys())
+		return make_umi_list(self.length, self.separator_position, self.alphabet)
 	def values (self):
-		return list(self.itervalues())
-	def iteritems (self):
-		return ((key, self.data[key]) for key in self.iterkeys())
+		return (self.data[key] for key in self.keys())
 	def items (self):
-		return list(self.iteritems())
+		return ((key, self.data[key]) for key in self.keys())
 	
 	# special dict functions for nonzero values only
-	def nonzero_iterkeys (self):
-		return (key for key in sorted(self.data.keys()) if self.data[key]) # double check in case the Counter contains zeroes
 	def nonzero_keys (self):
-		return list(self.nonzero_iterkeys())
-	def nonzero_itervalues (self):
-		return (self.data[key] for key in self.nonzero_iterkeys())
+		return (key for key in sorted(self.data.keys()) if self.data[key]) # double check in case the Counter contains zeroes
 	def nonzero_values (self):
-		return list(self.nonzero_itervalues())
-	def nonzero_iteritems (self):
-		return ((key, self.data[key]) for key in self.nonzero_iterkeys())
+		return (self.data[key] for key in self.nonzero_keys())
 	def nonzero_items (self):
-		return list(self.nonzero_items())
+		return ((key, self.data[key]) for key in self.nonzero_keys())
 
 def read_umi_counts_from_table (in_file, truncate = None):
 	result = None

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import copy, collections, argparse, pysam, sys
 from lib import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, markdup_sam, pysam_progress
@@ -58,16 +58,16 @@ if args.algorithm == 'bayes':
 
 # second pass: mark duplicates
 dup_marker = markdup_sam.DuplicateMarker(
-	alignments = in_bam,
-	umi_frequency = umi_totals,
-	algorithm = args.algorithm,
-	optical_dist = args.dist,
-	truncate_umi = args.truncate_umi,
-	nsamp = args.nsamp,
-	nthin = args.nthin,
-	nburn = args.nburn,
-	prior = prior,
-	filter_counts = args.filter,
+	alignments =          in_bam,
+	umi_frequency =       umi_totals,
+	algorithm =           args.algorithm,
+	optical_dist =        args.dist,
+	truncate_umi =        args.truncate_umi,
+	nsamp =               args.nsamp,
+	nthin =               args.nthin,
+	nburn =               args.nburn,
+	prior =               prior,
+	filter_counts =       args.filter,
 	sequence_correction = args.sequence_correction
 )
 if not args.quiet: progress.reset()
@@ -83,11 +83,11 @@ if not args.quiet: del progress
 if args.algorithm == 'bayes' and args.umi_table is None: # would already have reported alignments read
 	assert sum(umi_totals.nonzero_values()) == dup_marker.category_counts['usable alignment']
 sys.stderr.write(
-	'%i\talignments read\n%i\tusable alignments read\n\n' % (dup_marker.category_counts['alignment'], dup_marker.category_counts['usable alignment']) +
-	'%i\tUMI sequence corrections\n' % dup_marker.category_counts['sequence correction'] +
+	'%i\talignments read\n%i\tusable alignments read\n\n' %                                                       (dup_marker.category_counts['alignment'], dup_marker.category_counts['usable alignment']) +
+	'%i\tUMI sequence corrections\n' %                                                                            dup_marker.category_counts['sequence correction'] +
 	'\n' +
-	'%i\tdistinct alignments\n' % dup_marker.category_counts['distinct'] +
-	('%i\toptical duplicates\n' % dup_marker.category_counts['optical duplicate'] if args.dist != 0 else '') +
+	'%i\tdistinct alignments\n' %                                                                                 dup_marker.category_counts['distinct'] +
+	('%i\toptical duplicates\n' %                                                                                 dup_marker.category_counts['optical duplicate'] if args.dist != 0 else '') +
 	'%i\tPCR duplicates\n%i\tpre-PCR duplicates rescued by UMIs\n%i\tpre-PCR duplicates rescued by algorithm\n' % tuple(dup_marker.category_counts[x] for x in ['PCR duplicate', 'UMI rescued', 'algorithm rescued'])
 )
 # library stats
@@ -95,8 +95,9 @@ if args.stats:
 	sys.stderr.write(
 		'\n' +
 		'%.3f\tmean position entropy before deduplication\n' % dup_marker.get_mean_pos_entropy('before') +
-		'%.3f\tmean position entropy after deduplication\n' % dup_marker.get_mean_pos_entropy('after') +
-		'%.3f\tlibrary entropy before deduplication\n' % dup_marker.get_library_entropy('before') +
-		'%.3f\tlibrary entropy after deduplication\n' % dup_marker.get_library_entropy('after') +
-		'%i\testimated library size\n' % dup_marker.estimate_library_size()
+		'%.3f\tmean position entropy after deduplication\n' %  dup_marker.get_mean_pos_entropy('after') +
+		'%.3f\tlibrary entropy before deduplication\n' %       dup_marker.get_library_entropy('before') +
+		'%.3f\tlibrary entropy after deduplication\n' %        dup_marker.get_library_entropy('after') +
+		'%i\testimated library size\n' %                       dup_marker.estimate_library_size()
 	)
+
