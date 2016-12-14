@@ -142,7 +142,7 @@ class DuplicateMarker:
 					alignment_categories = {} # key = alignment query_name, value = which category it is (from DUP_CATEGORIES or otherwise)
 					alignments_by_umi = collections.defaultdict(list)
 					for this_alignment in alignments_to_dedup: alignments_by_umi[this_alignment.umi] += [this_alignment]
-					count_by_umi = umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.iteritems()])
+					count_by_umi = umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.items()])
 					self.pos_counts['before'].append(count_by_umi.nonzero_values())
 
 					# first pass: mark optical duplicates
@@ -168,7 +168,7 @@ class DuplicateMarker:
 								alignments_by_umi[umi].append(alignment)
 								self.category_counts['sequence correction'] += 1
 								try:
-								    del alignments_by_umi[umi_data.get_umi(alignment.query_name, self.truncate_umi)]
+								    del alignments_by_umi[alignment.umi]
 								except KeyError:
 								    pass
 						except TypeError:
