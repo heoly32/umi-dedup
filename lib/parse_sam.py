@@ -70,7 +70,8 @@ class ParsedAlignment:
 		self.reference_id = 				alignment.reference_id
 		self.name = 								alignment.query_name
 	
-	def unparse (self):
-		self.alignment.is_duplicate = self.is_duplicate
-		return self.alignment
+	def unparse (self, alignment):
+		alignment.set_tag('MI', self.umi)
+		alignment.is_duplicate = self.is_duplicate
+		return alignment
 

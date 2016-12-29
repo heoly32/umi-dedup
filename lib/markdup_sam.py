@@ -98,6 +98,7 @@ def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args
 				obsolete_umis = set()
 				for alignment, umi in alignments_with_new_umi:
 					obsolete_umis.add(alignment.umi)
+					alignment.umi = umi
 					alignments_by_umi[umi].append(alignment)
 					category_counts['sequence correction'] += 1
 				for umi in obsolete_umis:
@@ -196,7 +197,7 @@ class DuplicateMarker:
 		del self.raw_alignments[alignment.name]
 		
 		if test: print('\toutput %i:left%i start:%i %s' % (alignment.reference_id, alignment.left_pos, alignment.start_pos, alignment.name)) # test
-		return result
+		return alignment.unparse(result)
 	
 	def enqueue_positions(self, new_reference_id, new_pos):
 		# enqueue position data eligible for deduplication
