@@ -92,17 +92,20 @@ def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args
 			dedupped_counts = dedup_counts(count_by_umi, *dedup_args, **dedup_kwargs)
 			pos_counts['after'].append(dedupped_counts.nonzero_values())
 			if sequence_corrector is not None:
-				pre_correction_dict = {umi: len(hits) for umi, hits in alignments_by_umi.items()}
 				pre_correction_count = sum(map(len, alignments_by_umi.values()))
-				alignments_with_new_umi, first_clusters, second_clusters = sequence_corrector(alignments_by_umi)
-				obsolete_umis = set()
-				for alignment, umi in alignments_with_new_umi:
-					obsolete_umis.add(alignment.umi)
-					alignment.umi = umi
-					alignments_by_umi[umi].append(alignment)
-					category_counts['sequence correction'] += 1
-				for umi in obsolete_umis:
-					del alignments_by_umi[umi]
+				alignments_with_new_umi = sequence_corrector(alignments_by_umi)
+				try:
+					for alignment, umi in alignments_with_new_umi:
+						alignments_by_umi[umi].append(alignment)
+						category_counts['sequence correction'] += 1
+						try:
+							del alignments_by_umi[alignment.umi]
+						except KeyError:
+							pass
+				except TypeError:
+					pass
+				post_correction_count = sum(map(len, alignments_by_umi.values()))
+				assert pre_correction_count == post_correction_count
 				post_correction_count = sum(map(len, alignments_by_umi.values()))
 				assert pre_correction_count == post_correction_count
 			for umi, alignments_with_this_umi in alignments_by_umi.items():
