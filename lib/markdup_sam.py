@@ -173,6 +173,7 @@ class DuplicateMarker:
 								    del alignments_by_umi[umi_data.get_umi(alignment)]
 								except KeyError:
 								    pass
+								umi_data.set_umi(alignment, umi)
 						except TypeError:
 							pass
 						post_correction_count = sum(map(len, alignments_by_umi.values()))
