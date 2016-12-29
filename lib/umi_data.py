@@ -121,7 +121,7 @@ def read_umi_counts_from_reads (in_file, truncate = None): # in_file should be a
 			read_name = read.query_name
 		except AttributeError:
 			read_name = read.id # EAFP; if this isn't found either, AttributeError is still raised
-		umi = get_umi(read_name, truncate)
+		umi = parse_umi(read_name, truncate)
 		if not umi_is_good(umi): continue
 		try:
 			umi_totals[umi] += 1
