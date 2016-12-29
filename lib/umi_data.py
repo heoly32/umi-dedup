@@ -81,13 +81,21 @@ class UmiValues:
 	def nonzero_items (self):
 		return ((key, self.data[key]) for key in self.nonzero_keys())
 
-def get_umi (read_name, truncate = None):
+def parse_umi (read_name, truncate = None):
 	for label in read_name.split(' ')[:2]: # to allow NCBI format or regular Illumina
 		if label.count(':') in (5, 7): # Casava pre-1.8: should be 5 (4 + the UMI hack); Casava 1.8+ / bcl2fastq 2.17+: should be 7 (with optional UMI field)
 			umi = label.partition('#')[0].partition('/')[0].rpartition(':')[2] # don't include the space or # and the stuff after it, if present
 			return (umi if truncate is None else umi[:truncate + umi.count(DEFAULT_SEPARATOR)]) # don't count the pair separator when truncating
 	# only get here if nothing was found
 	raise RuntimeError('read name %s does not contain UMI in expected Casava/bcl2fastq format' % label)
+
+def set_umi (alignment, umi = None, truncate = None): # set an alignment's MI tag to a specific sequence, or parse it from the read name if no specific sequence provided; then return the updated alignment
+	if umi is None: umi = parse_umi(alignment.query_name, truncate)
+	alignment.set_tag('MI', umi)
+	return alignment
+
+def get_umi (alignment):
+	return alignment.get_tag('MI')
 
 def read_umi_counts_from_table (in_file, truncate = None):
 	result = None
