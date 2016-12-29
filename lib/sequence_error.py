@@ -109,7 +109,7 @@ class ClusterAndReducer:
                 # restrict both counts and adj_list to the UMIs that appear in cluster
                 counts_restricted = {umi: counts[umi] for umi in cluster}
                 adj_list_restricted = {umi: adj_list[umi] for umi in cluster}
-                if max(counts_restricted.values()) - min(counts_restricted.values()) < 1 and (len(cluster) - 1)/(4 * len(counts_restricted.keys()[1])) < 0.001:
+                if max(counts_restricted.values()) - min(counts_restricted.values()) < 1 and (len(cluster) - 1)/(4 * len(list(counts_restricted.keys())[1])) < 0.001:
                     new_components.append(cluster)
                 else:
                     new_clusters = kmeans.find_clusters(adj_list_restricted,
