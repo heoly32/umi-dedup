@@ -34,7 +34,15 @@ if args.algorithm == 'bayes' and args.umi_table is None and args.in_file == '-':
 in_bam = pysam.Samfile(args.in_file, 'rb')
 if not args.quiet: progress = pysam_progress.ProgressTrackerByPosition(in_bam)
 if in_bam.header['HD'].get('SO') != 'coordinate': raise RuntimeError('input file must be sorted by coordinate')
-out_bam = pysam.Samfile(args.out_file, 'wb', template = in_bam) # should add a line to the header indicating it was processed
+# create output file with modified header
+bam_header = in_bam.header
+bam_header['PG'].append({
+	'ID': 'umi-bayes',
+	'PN': 'umi-bayes',
+	'VN': 'devel',
+	'CL': ' '.join(sys.argv)
+})
+out_bam = pysam.Samfile(args.out_file, 'wb', header = bam_header)
 
 # first pass through the input: get total UMI counts (or use table instead, if provided)
 try:
