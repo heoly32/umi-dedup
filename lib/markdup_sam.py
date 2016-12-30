@@ -40,6 +40,7 @@ def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args
 	# trackers for summary statistics
 	category_counts = collections.Counter()
 	pos_counts = {'before': [], 'after': []}
+	new_alignments_by_mate = collections.defaultdict(list)
 	for mate_start_pos, alignments_with_this_mate in pos_data.alignments_by_mate.items(): # iterate over mate start positions
 		alignments_to_dedup = copy.copy(alignments_with_this_mate)
 
@@ -58,6 +59,7 @@ def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args
 						already_processed_alignment.is_duplicate = False
 						umi_nondup_counts[already_processed_alignment.umi] += 1
 					alignments_to_dedup.remove(already_processed_alignment)
+					new_alignments_by_mate[mate_start_pos].append(already_processed_alignment)
 				except KeyError: # this alignment is missing from the list, so its mate must have been missing from the data, so it still needs deduplication
 					pass
 			for umi_nondup_count in umi_nondup_counts.values():
@@ -96,12 +98,13 @@ def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args
 				alignments_with_new_umi = sequence_corrector(alignments_by_umi)
 				try:
 					for alignment, umi in alignments_with_new_umi:
-						alignments_by_umi[umi].append(alignment)
-						category_counts['sequence correction'] += 1
 						try:
 							del alignments_by_umi[alignment.umi]
 						except KeyError:
 							pass
+						alignment.umi = umi
+						alignments_by_umi[umi].append(alignment)
+						category_counts['sequence correction'] += 1
 				except TypeError:
 					pass
 				post_correction_count = sum(map(len, alignments_by_umi.values()))
@@ -113,18 +116,24 @@ def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args
 				assert alignments_with_this_umi and dedup_count
 				n_dup = len(alignments_with_this_umi) - dedup_count
 				for marked_alignment in umi_data.mark_duplicates(alignments_with_this_umi, n_dup):
+					new_alignments_by_mate[mate_start_pos].append(marked_alignment)
 					alignment_categories[marked_alignment.name] = ('PCR duplicate' if marked_alignment.is_duplicate else 'nonduplicate')
 				category_counts['PCR duplicate'] += n_dup
 				category_counts['UMI rescued'] += 1
 				category_counts['algorithm rescued'] += dedup_count - 1
 			category_counts['UMI rescued'] -= bool(alignments_by_umi) # count the first alignment at this position as distinct
 			category_counts['distinct'] += bool(alignments_by_umi)
+			
 
 #				# pass duplicate marking to mates DANGER DANGER THIS IS TEMPORARILY DISABLED
 #				if mate_start_pos is not None:
 #					for categorized_alignment, category in alignment_categories.iteritems():
 #						self.pos_tracker[not alignment.is_reverse][mate_start_pos].alignments_already_processed[start_pos][categorized_alignment.umi][categorized_alignment] = category
-
+	
+	print(pos_data)
+	pos_data.alignments_by_mate = new_alignments_by_mate
+	print(pos_data) # test
+	print()
 	return (pos_data, category_counts)
 
 def dedup_worker(queue_to_dedup, queue_dedupped, sequence_correction, *args, **kwargs):
