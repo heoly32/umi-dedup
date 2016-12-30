@@ -74,4 +74,7 @@ class ParsedAlignment:
 		alignment.set_tag('MI', self.umi)
 		alignment.is_duplicate = self.is_duplicate
 		return alignment
+	
+	def __repr__ (self):
+		return '<%s>' % str(self.__dict__)
 
