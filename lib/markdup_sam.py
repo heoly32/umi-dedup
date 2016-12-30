@@ -198,8 +198,7 @@ class DuplicateMarker:
 		# garbage collection
 		if pos_data.last_alignment_name == alignment.name: del self.pos_tracker_deduplicated[alignment.is_reverse][alignment.start_pos]
 		self.raw_alignments[alignment.name].is_duplicate = alignment.is_duplicate
-		result = self.raw_alignments[alignment.name]
-		del self.raw_alignments[alignment.name]
+		result = self.raw_alignments.pop(alignment.name)
 		
 		if test: print('\toutput %i:left%i start:%i %s' % (alignment.reference_id, alignment.left_pos, alignment.start_pos, alignment.name)) # test
 		return alignment.unparse(result)
