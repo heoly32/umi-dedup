@@ -57,7 +57,7 @@ class UmiValues:
 
 	def __setitem__ (self, key, value):
 		if not self.is_valid(key): raise KeyError(key)
-		if key == 0: # delete zeroes
+		if value == 0: # delete zeroes; conveniently __setitem__ also covers incrementing/decrementing
 			try:
 				del self.data[key]
 			except KeyError:
@@ -80,6 +80,10 @@ class UmiValues:
 		return (self.data[key] for key in self.nonzero_keys())
 	def nonzero_items (self):
 		return ((key, self.data[key]) for key in self.nonzero_keys())
+	
+	# convenience function
+	def n_nonzero (self): # return the number of nonzero counts
+		return len(self.data)
 
 def parse_umi (read_name, truncate = None):
 	for label in read_name.split(' ')[:2]: # to allow NCBI format or regular Illumina
