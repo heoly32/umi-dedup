@@ -55,14 +55,7 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
     data_dedup = apportion_counts.apportion_counts(data, round(p * sum(data)))
 
     # Return UmiValues with estimated number of true molecules
-    umi_true = umi_data.UmiValues([(list(umi_counts.nonzero_keys())[0], 0)])
-    for umi, raw_count, dedup in zip(umi_list, data, data_dedup):
-      if raw_count != 0:
-        umi_true[umi] = int(round(dedup))
-        assert(umi_true[umi]) > 0
-      umi_true[umi] = int(round(dedup))
-
-    return umi_true
+    return umi_data.UmiValues(zip(umi_list, data_dedup))
 
 def computeMedian(list):
     list.sort()
