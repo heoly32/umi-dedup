@@ -3,7 +3,9 @@ from . import umi_data
 
 def apportion_counts (counts, target_sum):
 	counts = list(counts)
+	assert(target_sum <= sum(counts))
 	result = [int(count > 0) for count in counts]
+	assert(target_sum >= sum(result))
 	divisor = float(target_sum) / sum(counts)
 	quotients = (count / divisor for count in counts)
 	residuals = [quotient - new_count for quotient, new_count in zip(quotients, result)]
