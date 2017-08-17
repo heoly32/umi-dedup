@@ -17,3 +17,6 @@ def apportion_counts (counts, target_sum):
 		remaining_counts -= 1
 	return result
 
+def apportion_umi_values (counts, target_sum):
+	return umi_data.UmiValues(zip(counts.nonzero_keys(), apportion_counts(counts.nonzero_values(), target_sum)))
+
