@@ -1,5 +1,5 @@
 import collections, copy
-from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, sequence_error, library_stats
+from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, weighted_average, sequence_error, library_stats
 
 # Initiate sequence correction functor
 # sequence_correcter = sequence_error.ClusterAndReducer()
@@ -59,6 +59,8 @@ class DuplicateMarker:
 		self.sequence_correction = sequence_correction
 		if algorithm == 'naive':
 			self.umi_dup_function = naive_estimate.deduplicate_counts
+		elif algorithm == 'weighted-average':
+			self.umi_dup_function = weighted_average.deduplicate_counts
 		elif algorithm in ('bayes', 'uniform-bayes'):
 			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(
 				umi_counts =    counts,

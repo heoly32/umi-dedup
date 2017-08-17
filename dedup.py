@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import copy, collections, argparse, pysam, sys
-from lib import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, markdup_sam, pysam_progress
+from lib import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, weighted_average, markdup_sam, pysam_progress
 
 # parse arguments
 parser = argparse.ArgumentParser(description = 'Read a coordinate-sorted BAM file with labeled UMIs and mark or remove duplicates due to PCR or optical cloning, but not duplicates present in the original library. When PCR/optical duplicates are detected, the reads with the highest total base qualities are marked as non-duplicate - note we do not discriminate on MAPQ, or other alignment features, because this would bias against polymorphisms.')
@@ -13,7 +13,7 @@ parser_reporting = parser.add_argument_group('reporting')
 parser_format.add_argument('-r', '--remove', action = 'store_true', help = 'remove PCR/optical duplicates instead of marking them')
 parser_alg.add_argument('-c', '--sequence_correction', action = 'store', choices = ['directional', 'kmeans'], help = 'correct UMI sequences before deduplication')
 parser_alg.add_argument('-d', '--dist', action = 'store', type = int, default = optical_duplicates.DEFAULT_DIST, help = 'maximum pixel distance for optical duplicates (Euclidean); set to 0 to skip optical duplicate detection')
-parser_alg.add_argument('-a', '--algorithm', action = 'store', default = 'naive', choices = ['naive', 'bayes', 'uniform-bayes'], help = 'algorithm for duplicate identification')
+parser_alg.add_argument('-a', '--algorithm', action = 'store', default = 'naive', choices = ['naive', 'bayes', 'uniform-bayes', 'weighted-average'], help = 'algorithm for duplicate identification')
 parser_alg.add_argument('--nsamp', action = 'store', type = int, default = bayes_estimate.DEFAULT_NSAMP)
 parser_alg.add_argument('--nthin', action = 'store', type = int, default = bayes_estimate.DEFAULT_NTHIN)
 parser_alg.add_argument('--nburn', action = 'store', type = int, default = bayes_estimate.DEFAULT_NBURN)
