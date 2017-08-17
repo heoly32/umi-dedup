@@ -31,6 +31,7 @@ class UmiValues:
 		self.alphabet = alphabet
 		if initial_data is not None:
 			assert length is None and separator_position is None
+			initial_data = list(initial_data)
 			example_umi = initial_data[0][0]
 			assert umi_is_good(example_umi)
 			self.length = len(example_umi) - example_umi.count(DEFAULT_SEPARATOR)
