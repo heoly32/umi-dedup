@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 import collections
 import sys
-from . import MCMC_algorithm_pi, umi_data
+from . import MCMC_algorithm_pi, umi_data, apportion_counts
 
 DEFAULT_NSAMP = 1000
 DEFAULT_NTHIN = 1
@@ -52,7 +52,7 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
 
     # Distribute counts across tags
     p = computeMedian(pi_post)
-    data_dedup = apportion_counts(data, round(p * sum(data)))
+    data_dedup = apportion_counts.apportion_counts(data, round(p * sum(data)))
 
     # Return UmiValues with estimated number of true molecules
     umi_true = umi_data.UmiValues([(list(umi_counts.nonzero_keys())[0], 0)])
@@ -76,15 +76,3 @@ def computeMedian(list):
         res = float(list[odd] + list[ev]) / float(2)
     return res
 
-def apportion_counts (counts, target_sum):
-    divisor = float(target_sum) / sum(counts)
-    quotients = (count / divisor for count in counts)
-    result = [int(count > 0) for count in counts]
-    residuals = [quotient - new_count for quotient, new_count in zip(quotients, result)]
-    remaining_counts = target_sum - sum(result)
-    while remaining_counts > 0:
-        which_to_increment = residuals.index(max(residuals))
-        result[which_to_increment] += 1
-        residuals[which_to_increment] -= 1
-        remaining_counts -= 1
-    return result
