@@ -31,6 +31,7 @@ class UmiValues:
 		self.alphabet = alphabet
 		if initial_data is not None:
 			assert length is None and separator_position is None
+			initial_data = list(initial_data)
 			example_umi = initial_data[0][0]
 			assert umi_is_good(example_umi)
 			self.length = len(example_umi) - example_umi.count(DEFAULT_SEPARATOR)
@@ -57,7 +58,7 @@ class UmiValues:
 
 	def __setitem__ (self, key, value):
 		if not self.is_valid(key): raise KeyError(key)
-		if key == 0: # delete zeroes
+		if value == 0: # delete zeroes; conveniently __setitem__ also covers incrementing/decrementing
 			try:
 				del self.data[key]
 			except KeyError:
@@ -66,40 +67,40 @@ class UmiValues:
 			self.data[key] = value
 
 	# standard dict functions
-	def iterkeys (self):
-		return make_umi_list(self.length, self.separator_position, self.alphabet)
 	def keys (self):
-		return list(self.iterkeys())
-	def itervalues (self):
-		return (self.data[key] for key in self.iterkeys())
+		return make_umi_list(self.length, self.separator_position, self.alphabet)
 	def values (self):
-		return list(self.itervalues())
-	def iteritems (self):
-		return ((key, self.data[key]) for key in self.iterkeys())
+		return (self.data[key] for key in self.keys())
 	def items (self):
-		return list(self.iteritems())
-
+		return ((key, self.data[key]) for key in self.keys())
+	
 	# special dict functions for nonzero values only
-	def nonzero_iterkeys (self):
-		return (key for key in sorted(self.data.keys()) if self.data[key]) # double check in case the Counter contains zeroes
 	def nonzero_keys (self):
-		return list(self.nonzero_iterkeys())
-	def nonzero_itervalues (self):
-		return (self.data[key] for key in self.nonzero_iterkeys())
+		return (key for key in sorted(self.data.keys()) if self.data[key]) # double check in case the Counter contains zeroes
 	def nonzero_values (self):
-		return list(self.nonzero_itervalues())
-	def nonzero_iteritems (self):
-		return ((key, self.data[key]) for key in self.nonzero_iterkeys())
+		return (self.data[key] for key in self.nonzero_keys())
 	def nonzero_items (self):
-		return list(self.nonzero_items())
+		return ((key, self.data[key]) for key in self.nonzero_keys())
+	
+	# convenience function
+	def n_nonzero (self): # return the number of nonzero counts
+		return len(self.data)
 
-def get_umi (read_name, truncate = None):
+def parse_umi (read_name, truncate = None):
 	for label in read_name.split(' ')[:2]: # to allow NCBI format or regular Illumina
 		if label.count(':') in (5, 7): # Casava pre-1.8: should be 5 (4 + the UMI hack); Casava 1.8+ / bcl2fastq 2.17+: should be 7 (with optional UMI field)
 			umi = label.partition('#')[0].partition('/')[0].rpartition(':')[2] # don't include the space or # and the stuff after it, if present
 			return (umi if truncate is None else umi[:truncate + umi.count(DEFAULT_SEPARATOR)]) # don't count the pair separator when truncating
 	# only get here if nothing was found
 	raise RuntimeError('read name %s does not contain UMI in expected Casava/bcl2fastq format' % label)
+
+def set_umi (alignment, umi = None, truncate = None): # set an alignment's MI tag to a specific sequence, or parse it from the read name if no specific sequence provided; then return the updated alignment
+	if umi is None: umi = parse_umi(alignment.query_name, truncate)
+	alignment.set_tag('MI', umi)
+	return alignment
+
+def get_umi (alignment):
+	return alignment.get_tag('MI')
 
 def read_umi_counts_from_table (in_file, truncate = None):
 	result = None
@@ -125,7 +126,7 @@ def read_umi_counts_from_reads (in_file, truncate = None): # in_file should be a
 			read_name = read.query_name
 		except AttributeError:
 			read_name = read.id # EAFP; if this isn't found either, AttributeError is still raised
-		umi = get_umi(read_name, truncate)
+		umi = parse_umi(read_name, truncate)
 		if not umi_is_good(umi): continue
 		try:
 			umi_totals[umi] += 1

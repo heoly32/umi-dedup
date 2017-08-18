@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 import collections
 import sys
-from . import MCMC_algorithm_pi, umi_data
+from . import MCMC_algorithm_pi, umi_data, apportion_counts
 
 DEFAULT_NSAMP = 1000
 DEFAULT_NTHIN = 1
@@ -11,8 +11,8 @@ DEFAULT_ALPHA1 = 1.5
 DEFAULT_ALPHA2 = 0.1
 
 def compute_prior (umi_counts):
-  denom = sum(umi_counts.nonzero_itervalues())
-  count_iter = umi_counts.nonzero_iteritems()
+  denom = sum(umi_counts.nonzero_values())
+  count_iter = umi_counts.nonzero_items()
   (first_umi, first_count) = next(count_iter)
   result = umi_data.UmiValues([(first_umi, first_count / denom)])
   for umi, count in count_iter: result[umi] = count / denom
@@ -23,23 +23,23 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
 
     if filter_counts:
         # Remove zeros from data, to shorten the vector
-        data = umi_counts.nonzero_values()
-        umi_list = umi_counts.nonzero_iterkeys()
+        data = list(umi_counts.nonzero_values())
+        umi_list = umi_counts.nonzero_keys()
         if uniform:
             n = len(data)
             C_prior = [1./n] * n
         else:
-            C_prior = [prior[key] for key in umi_counts.nonzero_iterkeys()]
+            C_prior = [prior[key] for key in umi_counts.nonzero_keys()]
             n = len(data)
     else:
         data = umi_counts.values()
-        umi_list = umi_counts.iterkeys()
+        umi_list = umi_counts.keys()
         n = len(data)
 
     N = sum(data)
 
     # Set priors for the different parameters
-    k = len(umi_counts.nonzero_values())
+    k = len(list(umi_counts.nonzero_values()))
     pi_prior = [k * alpha2, (N - k) * alpha2]
     S_prior = [1.] * n
 
@@ -52,17 +52,10 @@ def deduplicate_counts (umi_counts, nsamp=DEFAULT_NSAMP, nthin=DEFAULT_NTHIN, nb
 
     # Distribute counts across tags
     p = computeMedian(pi_post)
-    data_dedup = apportion_counts(data, round(p * sum(data)))
+    data_dedup = apportion_counts.apportion_counts(data, round(p * sum(data)))
 
     # Return UmiValues with estimated number of true molecules
-    umi_true = umi_data.UmiValues([(umi_counts.nonzero_keys()[0], 0)])
-    for umi, raw_count, dedup in zip(umi_list, data, data_dedup):
-      if raw_count != 0:
-        umi_true[umi] = int(round(dedup))
-        assert(umi_true[umi]) > 0
-      umi_true[umi] = int(round(dedup))
-
-    return umi_true
+    return umi_data.UmiValues(zip(umi_list, data_dedup))
 
 def computeMedian(list):
     list.sort()
@@ -76,15 +69,3 @@ def computeMedian(list):
         res = float(list[odd] + list[ev]) / float(2)
     return res
 
-def apportion_counts (counts, target_sum):
-    divisor = float(target_sum) / sum(counts)
-    quotients = (count / divisor for count in counts)
-    result = [int(count > 0) for count in counts]
-    residuals = [quotient - new_count for quotient, new_count in zip(quotients, result)]
-    remaining_counts = target_sum - sum(result)
-    while remaining_counts > 0:
-        which_to_increment = residuals.index(max(residuals))
-        result[which_to_increment] += 1
-        residuals[which_to_increment] -= 1
-        remaining_counts -= 1
-    return result

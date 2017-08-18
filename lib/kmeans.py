@@ -1,10 +1,10 @@
-from itertools import imap, combinations
+from itertools import combinations
 import collections, operator
 
 def hamming(umi1, umi2):
         assert len(umi1) == len(umi2)
         ne = operator.ne
-        return sum(imap(ne, umi1, umi2))
+        return sum(map(ne, umi1, umi2))
 
 class DistanceMatrix:
     '''Create object that store distance matrices'''
