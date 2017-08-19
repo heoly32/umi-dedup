@@ -13,15 +13,17 @@ class BICResults:
     self.size = k
 
 # Functions to compute likelihood
-def dpois(x, mu):
-  return x*np.log(mu) - mu - math.lgamma(x+1)
+# def dpois(x, mu):
+#   return x*np.log(mu) - mu - math.lgamma(x+1)
 
 def mixture_dist(obs, param):
   n = obs.size
   k = param[0].size
   tmp = np.zeros( (n, k) )
+  log_mu = np.log(param[1])
+  log_pi = np.log(param[0])
   for j in range(n):
-    tmp[j,...] = np.log(param[0])  + dpois(obs[j], param[1])
+    tmp[j,...] = log_pi + obs[j]*log_mu - param[1] - math.lgamma(obs[j]+1)
   if k == 1:
     return tmp
   else:
@@ -40,8 +42,10 @@ def mixing_weights(obs, param):
     k = param[0].size
     n = obs.size
     output = np.zeros((n, k))
+    log_mu = np.log(param[1])
+    log_pi = np.log(param[0])
     for j in range(n):
-      output[j,...] = (np.log(param[0]) + dpois(obs[j], param[1])) - np.logaddexp.reduce(np.log(param[0]) + dpois(obs[j], param[1]))
+      output[j,...] = (log_pi+ obs[j]*log_mu - param[1] - math.lgamma(obs[j]+1)) - np.logaddexp.reduce(log_pi + obs[j]*log_mu - param[1] - math.lgamma(obs[j]+1))
     return output
 
 # def gradient(data, obs, param):
@@ -102,11 +106,13 @@ def QN1_algorithm(data, obs, init_param):
         next_theta = float(np.sum(data * obs))/np.sum(data)
         next_param = (np.array(next_prob), np.array(next_theta))
     else:
+        next_lkhd = likelihood(data, obs, next_param)
         while True:
             iter += 1
             current_param = next_param
             current_gtilde = next_gtilde
             current_A = next_A
+            current_lkhd = next_lkhd
             #update parameter
             param_step = -np.dot(current_A, current_gtilde)
             #test if proposed parameter is in parameter space
@@ -120,7 +126,6 @@ def QN1_algorithm(data, obs, init_param):
             next_A = update_A(current_A, param_step,
                                              next_gtilde - current_gtilde)
             #testing if stopping rule is met
-            current_lkhd = likelihood(data, obs, current_param)
             next_lkhd = likelihood(data, obs, next_param)
             if abs(current_lkhd - next_lkhd) < 10**-6:
               break
@@ -136,12 +141,14 @@ def select_num_comp(data, obs):
   return min_bic_result
 
 def dedup_cluster(umi_counts):
+  if max(umi_counts.nonzero_values()) == 1: return(umi_counts) # shortcut when there are no duplicates
   naive_est = umi_counts.n_nonzero()
   max_est = sum(list(umi_counts.nonzero_values()))
   counter = collections.Counter(umi_counts.values())
   data = []
   obs = []
-  for count_item, data_item in counter.iteritems(): # PYTHON 2 ALERT
+  # for count_item, data_item in counter.iteritems(): # PYTHON 2 ALERT
+  for count_item, data_item in counter.items():
     obs.append(count_item)
     data.append(data_item)
   data = np.array(data)
@@ -162,7 +169,5 @@ def dedup_cluster(umi_counts):
       est = max_est
     else:
       est = int(round(est))
-    # print est
-    # print umi_counts.data
-    data_dedup = apportion_counts.apportion_counts(umi_counts.values(), est)
-    return umi_data.UmiValues(zip(umi_counts.keys(), data_dedup))
+  data_dedup = apportion_counts.apportion_counts(list(umi_counts.nonzero_values()), est)
+  return umi_data.UmiValues(zip(umi_counts.nonzero_keys(), data_dedup))
