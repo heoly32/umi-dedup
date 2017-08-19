@@ -136,9 +136,11 @@ def select_num_comp(data, obs):
   return min_bic_result
 
 def dedup_cluster(umi_counts):
-  naive_est = len(umi_counts.nonzero_keys())
+  naive_est = umi_counts.n_nonzero()
+  max_est = sum(list(umi_counts.nonzero_values()))
   counter = collections.Counter(umi_counts.values())
-  data = obs = []
+  data = []
+  obs = []
   for count_item, data_item in counter.iteritems(): # PYTHON 2 ALERT
     obs.append(count_item)
     data.append(data_item)
@@ -149,9 +151,18 @@ def dedup_cluster(umi_counts):
   else:
     min_bic_result = select_num_comp(data, obs)
     est = 0
-    num_mol = np.arange(min_bic_result.size)
+    num_mol = np.argsort(min_bic_result.estimate[1])
     mixing_mat = np.exp(mixing_weights(obs, min_bic_result.estimate))
     for i in range(data.size):
       est += np.dot(mixing_mat[i,...], num_mol) * obs[i]
-    data_dedup = apportion_counts.apportion_umi_values(umi_counts, max(int(round(est)), naive_est))
-    return umi_data.UmiValues(zip(umi_list, data_dedup))
+    # There is a clear range within which the value must fall
+    if est <= naive_est:
+      est = naive_est
+    elif est >= max_est:
+      est = max_est
+    else:
+      est = int(round(est))
+    # print est
+    # print umi_counts.data
+    data_dedup = apportion_counts.apportion_counts(umi_counts.values(), est)
+    return umi_data.UmiValues(zip(umi_counts.keys(), data_dedup))
