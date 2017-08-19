@@ -4,7 +4,7 @@ from . import umi_data
 
 def safe_round (x):
 	assert(x > 0)
-	if x < 1:
+	if 0 < x < 1:
 		return 1
 	else:
 		return round(x)
