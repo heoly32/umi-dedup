@@ -3,7 +3,8 @@ import numpy
 from . import umi_data
 
 def safe_round (x):
-	if x > 0 and x < 1:
+	assert(x > 0)
+	if x < 1:
 		return 1
 	else:
 		return round(x)
