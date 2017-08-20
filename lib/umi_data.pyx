@@ -1,5 +1,5 @@
 from __future__ import division
-import collections, itertools, re, pysam
+import itertools, re, pysam
 from . import parse_sam
 
 DEFAULT_ALPHABET = 'ACGT' # expected characters in UMI sequences
@@ -13,44 +13,48 @@ def get_separator_position (umi):
 	try:
 		return umi.index(DEFAULT_SEPARATOR)
 	except ValueError:
-		return None
+		return -1
 
-def make_umi_list (length, separator_position = None, alphabet = DEFAULT_ALPHABET):
+def make_umi_list (length, separator_position = -1, alphabet = DEFAULT_ALPHABET):
 	for sequence in itertools.product(alphabet, repeat = length):
 		umi = ''.join(sequence)
-		if separator_position is not None: umi = umi[:separator_position] + DEFAULT_SEPARATOR + umi[separator_position:]
+		if separator_position != -1: umi = umi[:separator_position] + DEFAULT_SEPARATOR + umi[separator_position:]
 		yield umi
 
-class UmiValues:
+cdef class UmiValues:
+	cdef int length
+	cdef int separator_position
+	cdef str alphabet
+	cdef dict data
+
 	def __init__ (self,
-		initial_data =       None, # should be list of (key, value) pairs
-		length =             None,
-		separator_position = None,
-		alphabet =           DEFAULT_ALPHABET
+		list initial_data =       [], # should be list of (key, value) pairs
+		int  length =             -1,
+		int  separator_position = -1,
+		str  alphabet =           DEFAULT_ALPHABET
 	):
 		self.alphabet = alphabet
-		if initial_data is not None:
-			assert length is None and separator_position is None
-			initial_data = list(initial_data)
+		if initial_data:
+			assert length == -1 and separator_position == -1
 			example_umi = initial_data[0][0]
 			assert umi_is_good(example_umi)
 			self.length = len(example_umi) - example_umi.count(DEFAULT_SEPARATOR)
 			self.separator_position = get_separator_position(example_umi)
-			self.data = collections.Counter()
+			self.data = dict()
 			for pair in initial_data:
 				assert(self.is_valid(pair[0])) # verify valid entries
 				if pair[1] != 0: self.data[pair[0]] = pair[1]
 		else:
-			assert length is not None
+			assert length >= 0
 			self.length =             length
 			self.separator_position = separator_position
-			self.data =               collections.Counter()
+			self.data =               dict()
 
 	def __len__ (self):
 		return len(self.alphabet) ** self.length
 
-	def is_valid (self, key):
-		return (len(key) == self.length + (self.separator_position is not None) and get_separator_position(key) == self.separator_position)
+	cdef bint is_valid (self, key):
+		return (len(key) == self.length + (self.separator_position != -1) and get_separator_position(key) == self.separator_position)
 
 	def __getitem__ (self, key):
 		if not self.is_valid(key): raise KeyError(key)
@@ -83,7 +87,7 @@ class UmiValues:
 		return ((key, self.data[key]) for key in self.nonzero_keys())
 	
 	# convenience function
-	def n_nonzero (self): # return the number of nonzero counts
+	cdef unsigned n_nonzero (self): # return the number of nonzero counts
 		return len(self.data)
 
 def parse_umi (read_name, truncate = None):
