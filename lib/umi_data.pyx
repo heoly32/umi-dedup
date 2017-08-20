@@ -77,17 +77,17 @@ cdef class UmiValues:
 	def keys (self):
 		return make_umi_list(self.length, self.separator_position, self.alphabet)
 	def values (self):
-		return (self.data[key] for key in self.keys())
+		return (self[key] for key in self.keys())
 	def items (self):
-		return ((key, self.data[key]) for key in self.keys())
+		return ((key, self[key]) for key in self.keys())
 	
 	# special dict functions for nonzero values only
 	def nonzero_keys (self):
-		return (key for key in sorted(self.data.keys()) if self.data[key]) # double check in case the Counter contains zeroes
+		return (key for key in sorted(self.data.keys()) if self[key]) # double check in case the Counter contains zeroes
 	def nonzero_values (self):
-		return (self.data[key] for key in self.nonzero_keys())
+		return (self[key] for key in self.nonzero_keys())
 	def nonzero_items (self):
-		return ((key, self.data[key]) for key in self.nonzero_keys())
+		return ((key, self[key]) for key in self.nonzero_keys())
 	
 	# convenience function
 	def n_nonzero (self): # return the number of nonzero counts
