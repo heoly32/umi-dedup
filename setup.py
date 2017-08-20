@@ -14,8 +14,7 @@ ext_modules = [Extension("lib.MCMC_algorithm", ["lib/MCMC_algorithm.pyx"],
                Extension("lib.MCMC_algorithm_pi", ["lib/MCMC_algorithm_pi.pyx"],
                         include_dirs=[include_gsl_dir],
                         library_dirs=[lib_gsl_dir],
-                        libraries=["gsl", "gslcblas"]),
-               Extension("lib.apportion_counts", ["lib/apportion_counts.pyx"])]
+                        libraries=["gsl", "gslcblas"])]
 
 setup(
     cmdclass={'build_ext': build_ext},
