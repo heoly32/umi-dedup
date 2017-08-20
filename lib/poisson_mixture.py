@@ -16,62 +16,65 @@ class BICResults:
 # def dpois(x, mu):
 #   return x*np.log(mu) - mu - math.lgamma(x+1)
 
-def mixture_dist(obs, param):
+
+def mixture_dist(obs, param, lgamma_obs):
   n = obs.size
   k = param[0].size
   tmp = np.zeros( (n, k) )
   log_mu = np.log(param[1])
   log_pi = np.log(param[0])
   for j in range(n):
-    tmp[j,...] = log_pi + obs[j]*log_mu - param[1] - math.lgamma(obs[j]+1)
+    tmp[j,...] = log_pi + obs[j]*log_mu - param[1] - lgamma_obs[j]
   if k == 1:
     return tmp
   else:
     return np.logaddexp.reduce(tmp, 1)
 
-def likelihood(data, obs, param):
-  return np.sum(data * mixture_dist(obs, param))
+def likelihood(data, obs, param, lgamma_obs):
+  return np.sum(data * mixture_dist(obs, param, lgamma_obs))
 
 # BIC for selecting number of components
-def BIC(data, obs, param):
+def BIC(data, obs, param, lgamma_obs):
     k = param[0].size
-    return -2*likelihood(data, obs, param) + (2 * k - 1) * math.log(np.sum(data))
+    return -2*likelihood(data, obs, param, lgamma_obs) + (2 * k - 1) * math.log(np.sum(data))
 
 # EM-algorithm updates
-def mixing_weights(obs, param):
+def mixing_weights(obs, param, lgamma_obs):
     k = param[0].size
     n = obs.size
     output = np.zeros((n, k))
     log_mu = np.log(param[1])
     log_pi = np.log(param[0])
     for j in range(n):
-      output[j,...] = (log_pi+ obs[j]*log_mu - param[1] - math.lgamma(obs[j]+1)) - np.logaddexp.reduce(log_pi + obs[j]*log_mu - param[1] - math.lgamma(obs[j]+1))
+      tmp = log_pi+ obs[j]*log_mu - param[1] - lgamma_obs[j]
+      output[j,...] = tmp - np.logaddexp.reduce(tmp)
     return output
 
-# def gradient(data, obs, param):
-#   k = param[0].size
-#   mixing_mat = mixing_weights(obs, param)
-#   for j in range(k):
-#     mixing_mat[...,j] += np.log(data)
-#   gradient_prob = param[0] * np.logaddexp.reduce(mixing_mat, axis = 0)
-#   gradient_theta = - np.logaddexp.reduce(mixing_mat, axis = 0)
-#   mixing_mat = np.exp(mixing_mat)
-#   for j in range(k):
-#     mixing_mat[...,j] *= obs
-#   gradient_theta += np.sum(mixing_mat, axis = 0)/param[1]
-#   return np.concatenate((gradient_prob, gradient_theta))
-
-def update_param(data, obs, param):
+def update_param(data, obs, param, lgamma_obs):
   k = param[0].size
-  mixing_mat = np.exp(mixing_weights(obs, param))
+  mixing_mat = np.exp(mixing_weights(obs, param, lgamma_obs))
   for j in range(k):
     mixing_mat[...,j] *= data
-  next_prob =np.sum(mixing_mat, axis = 0)/np.sum(data)
-  next_theta = 1/np.sum(mixing_mat, axis = 0)
+  tmp = np.sum(mixing_mat, axis = 0)
+  next_theta = 1/tmp
+  next_prob =tmp/np.sum(data)
   for j in range(k):
     mixing_mat[...,j] *= obs
   next_theta *= np.sum(mixing_mat, axis = 0)
   return (next_prob, next_theta)
+
+# def update_param(data, obs, param, lgamma_obs):
+#   k = param[0].size
+#   mixing_mat1 = np.exp(mixing_weights(obs, param, lgamma_obs))
+#   mixing_mat2 = np.copy(mixing_mat1)
+#   obs_data = obs * data
+#   for j in range(k):
+#     mixing_mat1[...,j] *= data
+#     mixing_mat2[...,j] *= obs_data
+#   tmp = np.sum(mixing_mat1, axis = 0)
+#   next_prob =tmp/np.sum(data)
+#   next_theta = np.sum(mixing_mat2, axis = 0)/tmp
+#   return (next_prob, next_theta)
 
 # QN1 algorithm----
 #We need to check if our proposed updates still lie in the parameter space
@@ -88,25 +91,25 @@ def update_A(current_A, param_step, function_step):
   return current_A + A_step
 
 #We are conceptually looking for a zero of g_tilde
-def g_tilde(data, obs, param):
-  next_param = update_param(data, obs, param)
+def g_tilde(data, obs, param, lgamma_obs):
+  next_param = update_param(data, obs, param, lgamma_obs)
   next_step = (next_param[0] - param[0], next_param[1] - param[1])
   return np.concatenate(next_step)
 
 # Fit algorithm to data----
-def QN1_algorithm(data, obs, init_param):
+def QN1_algorithm(data, obs, init_param, lgamma_obs):
     #parameter initialization
     next_param = init_param
     K = init_param[0].size
     next_A =  -np.identity(2*K)
-    next_gtilde = g_tilde(data, obs, next_param)
+    next_gtilde = g_tilde(data, obs, next_param, lgamma_obs)
     iter = 0
     if K == 1:
         next_prob = 1.0
         next_theta = float(np.sum(data * obs))/np.sum(data)
         next_param = (np.array(next_prob), np.array(next_theta))
     else:
-        next_lkhd = likelihood(data, obs, next_param)
+        next_lkhd = likelihood(data, obs, next_param, lgamma_obs)
         while True:
             iter += 1
             current_param = next_param
@@ -122,21 +125,21 @@ def QN1_algorithm(data, obs, init_param):
             next_param = (current_param[0] + param_step[0:K],
                                      current_param[1] + param_step[K:])
             #update the other parameters
-            next_gtilde = g_tilde(data, obs, next_param)
+            next_gtilde = g_tilde(data, obs, next_param, lgamma_obs)
             next_A = update_A(current_A, param_step,
                                              next_gtilde - current_gtilde)
             #testing if stopping rule is met
-            next_lkhd = likelihood(data, obs, next_param)
+            next_lkhd = likelihood(data, obs, next_param, lgamma_obs)
             if abs(current_lkhd - next_lkhd) < 10**-6:
               break
     # Compute BIC
-    bic = BIC(data, obs, next_param)
+    bic = BIC(data, obs, next_param, lgamma_obs)
     output = BICResults(bic, next_param, K)
     return output
 
-def select_num_comp(data, obs):
+def select_num_comp(data, obs, lgamma_obs):
   n = data.size
-  bic_list = [QN1_algorithm(data, obs, (np.array(k*[1.0/k]), np.arange(1, k+1))) for k in range(1, min(K_MAX, n) + 1)]
+  bic_list = [QN1_algorithm(data, obs, (np.array(k*[1.0/k]), np.arange(1, k+1)), lgamma_obs) for k in range(1, min(K_MAX, n) + 1)]
   min_bic_result = min(bic_list, key = lambda p: p.bic)
   return min_bic_result
 
@@ -151,15 +154,16 @@ def dedup_cluster(umi_counts):
   for count_item, data_item in counter.items():
     obs.append(count_item)
     data.append(data_item)
+  lgamma_obs = np.array([math.lgamma(x + 1) for x in obs])
   data = np.array(data)
   obs = np.array(obs)
   if data.size <= 2:
     est = naive_est
   else:
-    min_bic_result = select_num_comp(data, obs)
+    min_bic_result = select_num_comp(data, obs, lgamma_obs)
     est = 0
     num_mol = np.argsort(min_bic_result.estimate[1])
-    mixing_mat = np.exp(mixing_weights(obs, min_bic_result.estimate))
+    mixing_mat = np.exp(mixing_weights(obs, min_bic_result.estimate, lgamma_obs))
     for i in range(data.size):
       est += np.dot(mixing_mat[i,...], num_mol) * obs[i]
     # There is a clear range within which the value must fall
