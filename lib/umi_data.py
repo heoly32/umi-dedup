@@ -31,6 +31,7 @@ class UmiValues:
 		self.alphabet = alphabet
 		if initial_data is not None:
 			assert length is None and separator_position is None
+			initial_data = list(initial_data)
 			example_umi = initial_data[0][0]
 			assert umi_is_good(example_umi)
 			self.length = len(example_umi) - example_umi.count(DEFAULT_SEPARATOR)
@@ -57,7 +58,7 @@ class UmiValues:
 
 	def __setitem__ (self, key, value):
 		if not self.is_valid(key): raise KeyError(key)
-		if key == 0: # delete zeroes
+		if value == 0: # delete zeroes; conveniently __setitem__ also covers incrementing/decrementing
 			try:
 				del self.data[key]
 			except KeyError:
@@ -80,6 +81,10 @@ class UmiValues:
 		return (self.data[key] for key in self.nonzero_keys())
 	def nonzero_items (self):
 		return ((key, self.data[key]) for key in self.nonzero_keys())
+	
+	# convenience function
+	def n_nonzero (self): # return the number of nonzero counts
+		return len(self.data)
 
 def read_umi_counts_from_table (in_file, truncate = None):
 	result = None
