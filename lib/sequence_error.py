@@ -113,7 +113,7 @@ class ClusterAndReducer:
                     new_components.append(cluster)
                 else:
                     new_clusters = kmeans.find_clusters(adj_list_restricted,
-                                                        counts_restricted, k=2)
+                                                        counts_restricted)
                     for new_cluster in new_clusters.values():
                         new_components.append(new_cluster)
 
