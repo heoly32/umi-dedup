@@ -38,8 +38,8 @@ def get_quality_sum (alignment):
 
 Coords = collections.namedtuple('Coords', ['tile', 'x', 'y']) # "tile" actually also contains machine name, flow cell name, lane, etc. - enough to specify this tile all in one unique string
 
-def get_cluster_coords (alignment):
-	tile, x_string, y_string = alignment.query_name.rsplit(':', 3)[:3]
+def get_cluster_coords (read_name):
+	tile, x_string, y_string = read_name.rsplit(':', 3)[:3]
 	return Coords(tile, int(x_string), int(y_string))
 
 def get_umi (read_name, truncate = None):
@@ -53,22 +53,41 @@ def get_umi (read_name, truncate = None):
 class ParsedAlignment:
 	'''
 	container for useful information parsed out of a pysam.AlignedSegment
+	the attributes that depend on text parsing (cluster coordinates, UMI sequence) are only computed upon request since those operations are more expensive; they are then stored to avoid computing them more than once
 	'''
 	def __init__ (self, alignment, truncate = None):
-		self.is_good = 							alignment_is_good(alignment)
-		self.is_properly_paired = 	alignment_is_properly_paired(alignment)
-		self.start_pos = 						get_start_pos(alignment)
-		self.mate_start_pos = 			get_mate_start_pos(alignment)
-		self.is_first_mate = 				is_first_mate(alignment)
-		self.quality_sum = 					get_quality_sum(alignment)
-		self.cluster_coords = 			get_cluster_coords(alignment)
-		self.umi = 									get_umi(alignment.query_name, truncate)
+		# stored parameter
+		self.truncate =             truncate
+	
+		# directly copied values
 		self.is_reverse = 					alignment.is_reverse
 		self.is_paired = 						alignment.is_paired
 		self.is_duplicate = 				alignment.is_duplicate
 		self.left_pos = 						alignment.reference_start
 		self.reference_id = 				alignment.reference_id
 		self.name = 								alignment.query_name
+	
+		# precomputed values
+		self.is_good = 							alignment_is_good(alignment)
+		self.is_properly_paired = 	alignment_is_properly_paired(alignment)
+		self.start_pos = 						get_start_pos(alignment)
+		self.mate_start_pos = 			get_mate_start_pos(alignment)
+		self.is_first_mate = 				is_first_mate(alignment)
+		self.quality_sum = 					get_quality_sum(alignment)
+			
+		# values to compute and store on demand
+		self._cluster_coords =      None
+		self._umi =                 None
+	
+	@property
+	def cluster_coords (self):
+		if self._cluster_coords is None: self._cluster_coords = get_cluster_coords(self.name)
+		return self._cluster_coords
+	
+	@property
+	def umi (self):
+		if self._umi is None: self._umi = get_umi(self.name, self.truncate)
+		return self._umi
 	
 	def unparse (self, alignment):
 		alignment.set_tag('MI', self.umi)
