@@ -7,6 +7,7 @@ def alignment_is_good (alignment):
 	return not (alignment.is_unmapped or alignment.is_secondary or alignment.is_supplementary) # only count primary alignments, and discard unmapped reads since it's too expensive (and useless?) to find their duplicates
 
 def alignment_is_properly_paired (alignment): # return True if pair is in expected form, False if unexpected pairing or just unpaired
+	if not alignment.is_paired: return False
 	return (
 		alignment.template_length != 0 and
 		alignment.reference_id == alignment.next_reference_id and
