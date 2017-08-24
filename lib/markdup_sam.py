@@ -2,7 +2,7 @@ import collections, copy, multiprocessing
 import time
 from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, poisson_mixture, sequence_error, library_stats
 
-DEBUG = False # debugging mode with detailed progress updates and only one worker
+DEBUG = False # debugging mode with detailed progress updates
 
 
 DUP_CATEGORIES = ['optical duplicate', 'PCR duplicate']
@@ -233,7 +233,7 @@ class DuplicateMarker:
 				flush and self.queue_to_dedup._unfinished_tasks.get_value() > 0
 			):
 			if DEBUG: print('\t\t%i tasks in work queue, %i in finished queue' % (self.queue_to_dedup._unfinished_tasks.get_value(), self.queue_dedupped._unfinished_tasks.get_value()))
-			reference_id, is_reverse, pos, (pos_data, category_counts) = self.queue_dedupped.get() # this will wait until self.queue_dedupped is no longer empty, if it was empty in this cycle but we got here anyway at the end of the chromosome
+			reference_id, is_reverse, pos, (pos_data, category_counts) = self.queue_dedupped.get() # this will wait until self.queue_dedupped is no longer empty, if it was empty in this cycle but we got here anyway at the end of the genome
 			self.pos_tracker_deduplicated[reference_id][is_reverse][pos] = pos_data
 			self.category_counts.update(category_counts)
 			self.queue_dedupped.task_done()
