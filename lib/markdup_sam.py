@@ -30,7 +30,7 @@ def dedup_counts(counts, algorithm, *args, **kwargs):
 	elif algorithm in ('bayes', 'uniform-bayes'):
 		return bayes_estimate.deduplicate_counts(umi_counts = counts, uniform = (algorithm == 'uniform-bayes'), *args, **kwargs)
 	elif algorithm == 'cluster':
-			self.umi_dup_function = poisson_mixture.dedup_cluster
+		return poisson_mixture.dedup_cluster(counts)
 	else:
 		raise NotImplementedError
 
