@@ -3,9 +3,9 @@ import time
 from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, poisson_mixture, sequence_error, library_stats
 
 DEBUG = False # debugging mode with detailed progress updates
-
-
+QUEUE_LIMIT_PER_WORKER = 10 # maximum number of tasks allowed in the queue to deduplicate, multiplied by number of workers; the queue of completed tasks is unlimited so that the other workers don't stall if one gets a huge task, and this may still fill up the memory somewhat
 DUP_CATEGORIES = ['optical duplicate', 'PCR duplicate']
+
 
 class PosTracker:
 	'''
@@ -164,7 +164,7 @@ class DuplicateMarker:
 		self.pos_tracker_deduplicated =  collections.defaultdict(lambda: (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker))) # data structure containing alignments by position rather than sort order; top level is by chromosome (reference ID), then next level is strand (0 = forward, 1 = reverse), then next level is 5' alignment start position, then next level is by 5' start position of mate alignment, and each element of that contains a variety of data; all levels are dict since they are looked up by identity; this one only contains positions that have completed deduplication
 		self.pos_tracker_to_populate =   (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker)) # like self.pos_tracker_deduplicated except it contains positions that are still being populated with new alignments and haven't been deduplicated yet; is only defined for the current reference ID since it doesn't need to look at more than one at a time
 		self.output_generator =          self.get_marked_alignment()
-		self.queue_to_dedup =            multiprocessing.JoinableQueue()
+		self.queue_to_dedup =            multiprocessing.JoinableQueue(QUEUE_LIMIT_PER_WORKER * processes)
 		self.queue_dedupped =            multiprocessing.JoinableQueue()
 		for i in range(processes):
 			p = multiprocessing.Process(target = dedup_worker, args = [self.queue_to_dedup, self.queue_dedupped] + list(dedup_args), kwargs = dedup_kwargs)
