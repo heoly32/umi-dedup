@@ -136,7 +136,7 @@ def dedup_worker(queue_to_dedup, queue_dedupped, sequence_correction, *args, **k
 		new_pos_data = dedup_pos(pos_data, sequence_corrector, *args, **kwargs)
 		queue_dedupped.put((reference_id, is_reverse, pos, new_pos_data))
 		queue_to_dedup.task_done()
-		if DEBUG: print('\t\t\tfinished %i in %f s' % (pos, time.clock() - start_time))
+		if DEBUG: print('\t\t\tfinished %i:%i%s in %f s' % (reference_id, pos, '-' if is_reverse else '+', time.clock() - start_time))
 
 class DuplicateMarker:
 	'''
@@ -151,7 +151,7 @@ class DuplicateMarker:
 	def __init__(self,
 		alignments,
 		truncate_umi = None,
-		processes = (1 if DEBUG else multiprocessing.cpu_count()),
+		processes = multiprocessing.cpu_count(),
 		*dedup_args,
 		**dedup_kwargs
 	):
