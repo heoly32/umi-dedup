@@ -15,18 +15,23 @@ parser_data.add_argument('in_file', action = 'store', nargs = '?', type = argpar
 parser_data.add_argument('out_file', action = 'store', nargs = '?', type = argparse.FileType('w'), default = sys.stdout, help = 'output FASTQ')
 args = parser.parse_args()
 
-read_counter = 0
+read_counter = discard_counter = 0
 base_counter = [collections.Counter() for i in range(args.umi_length)]
 
 for read, umi in parse_fastq.get_read_umis(args.in_file, args.umi_length, args.before, args.after, [i - 1 for i in args.mask]): # convert mask from 1-indexed to 0-indexed
-	args.out_file.write(read.format('fastq'))
 	read_counter += 1
+	if len(read) <= args.umi_length + args.before + args.after:
+		discard_counter += 1
+		continue
+	args.out_file.write(read.format('fastq'))
 	for i in range(args.umi_length - len(args.mask)): base_counter[i][umi[i]] += 1
 args.in_file.close()
 args.out_file.close()
 
 # generate summary statistics
-sys.stderr.write('%i reads processed\n\n' % read_counter)
+sys.stderr.write('%i reads processed\n' % read_counter)
+if discard_counter > 0: sys.stderr.write('%i discarded as too short' % discard_counter)
+sys.stderr.write('\n')
 
 alphabet = sorted(set.union(*(map(set, base_counter)))) # detect from data since it may include N
 sys.stderr.write('UMI base frequency by position\n')
