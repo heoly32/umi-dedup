@@ -56,6 +56,9 @@ class ParsedAlignment:
 	container for useful information parsed out of a pysam.AlignedSegment
 	the attributes that depend on text parsing (cluster coordinates, UMI sequence) are only computed upon request since those operations are more expensive; they are then stored to avoid computing them more than once
 	'''
+	
+	__slots__ = ['truncate', 'is_reverse', 'is_paired', 'is_duplicate', 'left_pos', 'reference_id', 'name', 'is_good', 'is_properly_paired', 'start_pos', 'mate_start_pos', 'is_first_mate', 'quality_sum', '_cluster_coords', '_umi']
+	
 	def __init__ (self, alignment, truncate = None):
 		# stored parameter
 		self.truncate =             truncate
