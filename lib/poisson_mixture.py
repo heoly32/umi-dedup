@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import collections
+from numba import jit
 from . import apportion_counts, umi_data
 
 K_MAX = 10
@@ -16,7 +17,7 @@ class BICResults:
 # def dpois(x, mu):
 #   return x*np.log(mu) - mu - math.lgamma(x+1)
 
-
+@jit
 def mixture_dist(obs, param, lgamma_obs):
   n = obs.size
   k = param[0].size
@@ -30,15 +31,18 @@ def mixture_dist(obs, param, lgamma_obs):
   else:
     return np.logaddexp.reduce(tmp, 1)
 
+@jit
 def likelihood(data, obs, param, lgamma_obs):
   return np.sum(data * mixture_dist(obs, param, lgamma_obs))
 
 # BIC for selecting number of components
+@jit
 def BIC(data, obs, param, lgamma_obs):
     k = param[0].size
     return -2*likelihood(data, obs, param, lgamma_obs) + (2 * k - 1) * math.log(np.sum(data))
 
 # EM-algorithm updates
+@jit
 def mixing_weights(obs, param, lgamma_obs):
     k = param[0].size
     n = obs.size
@@ -50,6 +54,7 @@ def mixing_weights(obs, param, lgamma_obs):
       output[j,...] = tmp - np.logaddexp.reduce(tmp)
     return output
 
+@jit
 def update_param(data, obs, param, lgamma_obs):
   k = param[0].size
   mixing_mat = np.exp(mixing_weights(obs, param, lgamma_obs))
@@ -78,6 +83,7 @@ def update_param(data, obs, param, lgamma_obs):
 
 # QN1 algorithm----
 #We need to check if our proposed updates still lie in the parameter space
+@jit
 def in_param_space(current_param, param_step):
   k = current_param[0].size
   suggest_prob = current_param[0] + param_step[0:k]
@@ -85,18 +91,21 @@ def in_param_space(current_param, param_step):
   return all(suggest_theta > 0) and all(suggest_prob > 0) and all(suggest_prob < 1)
 
 #Define our updating step for the estimate of the inverse jacobian
+@jit
 def update_A(current_A, param_step, function_step):
   A_step = np.outer(param_step - np.dot(current_A, function_step), np.dot(param_step, current_A))
   A_step /=  np.dot(param_step, np.dot(current_A, function_step))
   return current_A + A_step
 
 #We are conceptually looking for a zero of g_tilde
+@jit
 def g_tilde(data, obs, param, lgamma_obs):
   next_param = update_param(data, obs, param, lgamma_obs)
   next_step = (next_param[0] - param[0], next_param[1] - param[1])
   return np.concatenate(next_step)
 
 # Fit algorithm to data----
+@jit
 def QN1_algorithm(data, obs, init_param, lgamma_obs):
     #parameter initialization
     next_param = init_param
