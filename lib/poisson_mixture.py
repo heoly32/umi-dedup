@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import collections
+from numba import jit
 from . import apportion_counts, umi_data
 
 K_MAX = 10
@@ -16,7 +17,7 @@ class BICResults:
 # def dpois(x, mu):
 #   return x*np.log(mu) - mu - math.lgamma(x+1)
 
-
+@jit
 def mixture_dist(obs, param, lgamma_obs):
   n = obs.size
   k = param[0].size
@@ -30,15 +31,18 @@ def mixture_dist(obs, param, lgamma_obs):
   else:
     return np.logaddexp.reduce(tmp, 1)
 
+@jit
 def likelihood(data, obs, param, lgamma_obs):
   return np.sum(data * mixture_dist(obs, param, lgamma_obs))
 
 # BIC for selecting number of components
+@jit
 def BIC(data, obs, param, lgamma_obs):
     k = param[0].size
     return -2*likelihood(data, obs, param, lgamma_obs) + (2 * k - 1) * math.log(np.sum(data))
 
 # EM-algorithm updates
+@jit
 def mixing_weights(obs, param, lgamma_obs):
     k = param[0].size
     n = obs.size
@@ -50,6 +54,7 @@ def mixing_weights(obs, param, lgamma_obs):
       output[j,...] = tmp - np.logaddexp.reduce(tmp)
     return output
 
+@jit
 def update_param(data, obs, param, lgamma_obs):
   k = param[0].size
   mixing_mat = np.exp(mixing_weights(obs, param, lgamma_obs))
@@ -78,6 +83,7 @@ def update_param(data, obs, param, lgamma_obs):
 
 # QN1 algorithm----
 #We need to check if our proposed updates still lie in the parameter space
+@jit
 def in_param_space(current_param, param_step):
   k = current_param[0].size
   suggest_prob = current_param[0] + param_step[0:k]
@@ -85,18 +91,21 @@ def in_param_space(current_param, param_step):
   return all(suggest_theta > 0) and all(suggest_prob > 0) and all(suggest_prob < 1)
 
 #Define our updating step for the estimate of the inverse jacobian
+@jit
 def update_A(current_A, param_step, function_step):
   A_step = np.outer(param_step - np.dot(current_A, function_step), np.dot(param_step, current_A))
   A_step /=  np.dot(param_step, np.dot(current_A, function_step))
   return current_A + A_step
 
 #We are conceptually looking for a zero of g_tilde
+@jit
 def g_tilde(data, obs, param, lgamma_obs):
   next_param = update_param(data, obs, param, lgamma_obs)
   next_step = (next_param[0] - param[0], next_param[1] - param[1])
   return np.concatenate(next_step)
 
 # Fit algorithm to data----
+@jit
 def QN1_algorithm(data, obs, init_param, lgamma_obs):
     #parameter initialization
     next_param = init_param
@@ -144,16 +153,14 @@ def select_num_comp(data, obs, lgamma_obs):
   return min_bic_result
 
 def dedup_cluster(umi_counts):
-  if max(umi_counts.nonzero_values()) == 1: return(umi_counts) # shortcut when there are no duplicates
+  initial_counts = list(umi_counts.nonzero_values())
+  if max(initial_counts) == 1: return(umi_counts) # shortcut when there are no duplicates
   naive_est = umi_counts.n_nonzero()
-  max_est = sum(list(umi_counts.nonzero_values()))
-  counter = collections.Counter(umi_counts.values())
-  data = []
-  obs = []
-  # for count_item, data_item in counter.iteritems(): # PYTHON 2 ALERT
-  for count_item, data_item in counter.items():
-    obs.append(count_item)
-    data.append(data_item)
+  max_est = sum(initial_counts)
+  counter = collections.Counter(initial_counts)
+  counter[0] = len(umi_counts) - naive_est
+  data = list(counter.values())
+  obs = list(counter.keys())
   lgamma_obs = np.array([math.lgamma(x + 1) for x in obs])
   data = np.array(data)
   obs = np.array(obs)
@@ -173,5 +180,5 @@ def dedup_cluster(umi_counts):
       est = max_est
     else:
       est = int(round(est))
-  data_dedup = apportion_counts.apportion_counts(list(umi_counts.nonzero_values()), est)
+  data_dedup = apportion_counts.apportion_counts(initial_counts, est)
   return umi_data.UmiValues(zip(umi_counts.nonzero_keys(), data_dedup))
