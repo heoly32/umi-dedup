@@ -2,7 +2,7 @@ import collections, copy, multiprocessing
 import time
 from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, poisson_mixture, sequence_error, library_stats
 
-test = False # test
+DEBUG = False # debugging mode with detailed progress updates and only one worker
 
 
 DUP_CATEGORIES = ['optical duplicate', 'PCR duplicate']
@@ -15,15 +15,11 @@ class PosTracker:
 
 	__slots__ = ['alignments_by_mate', 'alignments_already_processed', 'last_alignment_name']
 
-	def __init__(self,
-		alignments_by_mate =            collections.defaultdict(list),
-		alignments_already_processed =  {},
-		last_alignment_name =           None,
-	):
+	def __init__ (self):
 #		self.alignments_already_processed = alignments_already_processed if alignments_already_processed is not None else collections.defaultdict(lambda: collections.defaultdict(dict))
-		self.alignments_by_mate =            alignments_by_mate
-		self.alignments_already_processed =  alignments_already_processed
-		self.last_alignment_name =           last_alignment_name
+		self.alignments_by_mate =            collections.defaultdict(list)
+		self.alignments_already_processed =  {}
+		self.last_alignment_name =           None
 
 	def __repr__(self):
 		return '%s(alignments_by_mate = %s, alignments_already_processed = %s, last_alignment_name = %s)' % (self.__class__, self.alignments_by_mate, self.alignments_already_processed, self.last_alignment_name)
@@ -134,13 +130,13 @@ def dedup_pos(pos_data, sequence_corrector = None, optical_dist = 0, *dedup_args
 def dedup_worker(queue_to_dedup, queue_dedupped, sequence_correction, *args, **kwargs):
 	sequence_corrector = (None if sequence_correction is None else sequence_error.ClusterAndReducer(sequence_correction))
 	while True:
-		is_reverse, pos, pos_data = queue_to_dedup.get()
-		if test: print('\t\t\tworking on %i' % pos)
+		reference_id, is_reverse, pos, pos_data = queue_to_dedup.get()
+		if DEBUG: print('\t\t\tworking on %i' % pos)
 		start_time = time.clock()
 		new_pos_data = dedup_pos(pos_data, sequence_corrector, *args, **kwargs)
-		queue_dedupped.put((is_reverse, pos, new_pos_data))
+		queue_dedupped.put((reference_id, is_reverse, pos, new_pos_data))
 		queue_to_dedup.task_done()
-		if test: print('\t\t\tfinished %i in %f s' % (pos, time.clock() - start_time))
+		if DEBUG: print('\t\t\tfinished %i in %f s' % (pos, time.clock() - start_time))
 
 class DuplicateMarker:
 	'''
@@ -148,14 +144,14 @@ class DuplicateMarker:
 	assumes the input iterable is sorted by leftmost coordinate (SAMtools style) and yields alignments in the same order
 	does not yield unusable alignments
 	central concept: cheat a little, detecting duplicate alignments by the fact that they align to the same (start) position rather than by their sequences
-	implementation: as you traverse the coordinate-sorted input alignments, add each alignment to both a FIFO buffer (so they can be output in the same order) and a dictionary that groups alignments by strand, start position, and mate start position (None if single-end); this is not inefficient because both data structures contain pointers to the same alignment objects
+	implementation: as you traverse the coordinate-sorted input alignments, add each alignment to both a FIFO buffer (so they can be output in the same order) and a dictionary that groups alignments by chromosome (reference ID), strand, start position, and mate start position (None if single-end); this is not inefficient because both data structures contain pointers to the same alignment objects
 	at the strand+position level (before mate start position), track metadata: whether this strand+position has been deduplicated and which alignment was added to it last (when this alignment is processed, the tracker can be deleted safely)
 	then, after each input alignment, check the left end of the buffer to tell whether the oldest alignment is in a position that will never accumulate any more hits (because the input is sorted by coordinate); if so, estimate the duplication at that position, mark all the alignments there accordingly, then output the alignment with the appropriate marking
 	'''
 	def __init__(self,
 		alignments,
 		truncate_umi = None,
-		processes = (1 if test else multiprocessing.cpu_count()), # test
+		processes = (1 if DEBUG else multiprocessing.cpu_count()),
 		*dedup_args,
 		**dedup_kwargs
 	):
@@ -165,8 +161,8 @@ class DuplicateMarker:
 		self.alignment_source =          alignments
 		self.raw_alignments =            {}
 		self.alignment_buffer =          collections.deque()
-		self.pos_tracker_deduplicated =  (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker)) # data structure containing alignments by position rather than sort order; top level is by strand (0 = forward, 1 = reverse), then next level is by 5' alignment start position (dict since these will be sparse and are only looked up by identity), then next level is by 5' start position of mate alignment, and each element of that contains a variety of data; there is no level for reference ID because there is no reason to store more than one chromosome at a time; this one only contains positions that have completed deduplication
-		self.pos_tracker_to_populate =   (collections.OrderedDict(), collections.OrderedDict()) # like self.pos_tracker_deduplicated except it contains positions that are still being populated with new alignments and haven't been deduplicated yet; uses OrderedDict so they can be deduplicated in order of genome position
+		self.pos_tracker_deduplicated =  collections.defaultdict(lambda: (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker))) # data structure containing alignments by position rather than sort order; top level is by chromosome (reference ID), then next level is strand (0 = forward, 1 = reverse), then next level is 5' alignment start position, then next level is by 5' start position of mate alignment, and each element of that contains a variety of data; all levels are dict since they are looked up by identity; this one only contains positions that have completed deduplication
+		self.pos_tracker_to_populate =   (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker)) # like self.pos_tracker_deduplicated except it contains positions that are still being populated with new alignments and haven't been deduplicated yet; is only defined for the current reference ID since it doesn't need to look at more than one at a time
 		self.output_generator =          self.get_marked_alignment()
 		self.queue_to_dedup =            multiprocessing.JoinableQueue()
 		self.queue_dedupped =            multiprocessing.JoinableQueue()
@@ -195,19 +191,21 @@ class DuplicateMarker:
 
 	def pop_buffer(self):
 		alignment = self.alignment_buffer.popleft()
-		pos_data = self.pos_tracker_deduplicated[alignment.is_reverse][alignment.start_pos] # KeyError if it hasn't been deduplicated yet
+		pos_data = self.pos_tracker_deduplicated[alignment.reference_id][alignment.is_reverse][alignment.start_pos] # KeyError if it hasn't been deduplicated yet
 
 		# garbage collection
-		if pos_data.last_alignment_name == alignment.name: del self.pos_tracker_deduplicated[alignment.is_reverse][alignment.start_pos]
+		if pos_data.last_alignment_name == alignment.name: del self.pos_tracker_deduplicated[alignment.reference_id][alignment.is_reverse][alignment.start_pos]
+		if 0 == len(self.pos_tracker_deduplicated[alignment.reference_id][0]) == len(self.pos_tracker_deduplicated[alignment.reference_id][1]) and not alignment.reference_id in self.pos_tracker_to_populate: del self.pos_tracker_deduplicated[alignment.reference_id]
+		
 		self.raw_alignments[alignment.name].is_duplicate = alignment.is_duplicate
 		result = self.raw_alignments.pop(alignment.name)
 
-		if test: print('\toutput %i:left%i start:%i %s' % (alignment.reference_id, alignment.left_pos, alignment.start_pos, alignment.name)) # test
+		if DEBUG: print('\toutput %i:left%i start:%i %s' % (alignment.reference_id, alignment.left_pos, alignment.start_pos, alignment.name))
 		return alignment.unparse(result)
 
 	def enqueue_positions(self, new_reference_id, new_pos):
 		# enqueue position data eligible for deduplication
-		if test: print('\tadvance to ref%i:left%i' % (new_reference_id, new_pos)) # test
+		if DEBUG: print('\tadvance to ref%i:left%i' % (new_reference_id, new_pos))
 		for is_reverse in (0, 1):
 			while self.pos_tracker_to_populate[is_reverse] and (
 				self.current_reference_id < new_reference_id or # entire chromosome is done
@@ -215,39 +213,41 @@ class DuplicateMarker:
 			):
 				pos = list(self.pos_tracker_to_populate[is_reverse].keys())[0]
 				if max(map(len, self.pos_tracker_to_populate[is_reverse][pos].alignments_by_mate.values())) == 1: # singletons skip the queue
-					self.pos_tracker_deduplicated[is_reverse][pos] = self.pos_tracker_to_populate[is_reverse][pos]
+					self.pos_tracker_deduplicated[self.current_reference_id][is_reverse][pos] = self.pos_tracker_to_populate[is_reverse][pos]
 					self.category_counts['distinct'] += len(self.pos_tracker_to_populate[is_reverse][pos].alignments_by_mate)
 					self.pos_counts['before'] += [[1]] * len(self.pos_tracker_to_populate[is_reverse][pos].alignments_by_mate)
 					self.pos_counts['after'] += [[1]] * len(self.pos_tracker_to_populate[is_reverse][pos].alignments_by_mate)
 				else:
-					self.queue_to_dedup.put((is_reverse, pos, self.pos_tracker_to_populate[is_reverse][pos]))
-					if test: print('\t\tenqueue start%i' % pos) # test
+					self.queue_to_dedup.put((self.current_reference_id, is_reverse, pos, self.pos_tracker_to_populate[is_reverse][pos]))
+					if DEBUG: print('\t\tenqueue start%i' % pos)
 				del self.pos_tracker_to_populate[is_reverse][pos]
+		assert self.current_reference_id == new_reference_id or max(map(len, self.pos_tracker_to_populate)) == 0
 
-	def dedup_until(self, new_reference_id, new_pos):
+	def dedup_until(self, new_reference_id, new_pos, flush = False):
 		self.enqueue_positions(new_reference_id, new_pos)
 
 		# update the tracking data with any positions that have finished deduplication
 		while (
 			self.queue_dedupped._unfinished_tasks.get_value() > 0
-			) or(
-				self.current_reference_id < new_reference_id and self.queue_to_dedup._unfinished_tasks.get_value() > 0 # if this is the end of the chromosome, continue until the entire queue is processed
+			) or (
+				flush and self.queue_to_dedup._unfinished_tasks.get_value() > 0
 			):
-			if test: print('\t\t%i tasks in work queue, %i in finished queue' % (self.queue_to_dedup._unfinished_tasks.get_value(), self.queue_dedupped._unfinished_tasks.get_value()))
-			is_reverse, pos, (pos_data, category_counts) = self.queue_dedupped.get() # this will wait until self.queue_dedupped is no longer empty, if it was empty in this cycle but we got here anyway at the end of the chromosome
-			self.pos_tracker_deduplicated[is_reverse][pos] = pos_data
+			if DEBUG: print('\t\t%i tasks in work queue, %i in finished queue' % (self.queue_to_dedup._unfinished_tasks.get_value(), self.queue_dedupped._unfinished_tasks.get_value()))
+			reference_id, is_reverse, pos, (pos_data, category_counts) = self.queue_dedupped.get() # this will wait until self.queue_dedupped is no longer empty, if it was empty in this cycle but we got here anyway at the end of the chromosome
+			self.pos_tracker_deduplicated[reference_id][is_reverse][pos] = pos_data
 			self.category_counts.update(category_counts)
 			self.queue_dedupped.task_done()
-			if test: print('\t\tfinished start%i' % pos) # test
-		if test: print('\t\t%i tasks in work queue, %i in finished queue' % (self.queue_to_dedup._unfinished_tasks.get_value(), self.queue_dedupped._unfinished_tasks.get_value()))
+			if DEBUG: print('\t\tfinished start%i' % pos)
+		if DEBUG: print('\t\t%i tasks in work queue, %i in finished queue' % (self.queue_to_dedup._unfinished_tasks.get_value(), self.queue_dedupped._unfinished_tasks.get_value()))
 
 	def tracker_is_empty(self): # verify that any remaining positions are only "already processed" alignments that never appeared
-		for tracker in (self.pos_tracker_to_populate, self.pos_tracker_deduplicated):
-			for strand_tracker in tracker:
-				for pos_data in strand_tracker.values():
-					if pos_data.alignments_by_mate or pos_data.last_alignment_name:
-						return False
-		return True
+		return max(map(len, self.pos_tracker_to_populate)) == len(self.pos_tracker_deduplicated) == 0
+#		for tracker in (self.pos_tracker_to_populate, self.pos_tracker_deduplicated):
+#			for strand_tracker in tracker:
+#				for pos_data in strand_tracker.values():
+#					if pos_data.alignments_by_mate or pos_data.last_alignment_name:
+#						return False
+#		return True
 
 	def add_alignment(self, alignment, raw_alignment):
 		# add the alignment to the tracking data structures
@@ -279,7 +279,8 @@ class DuplicateMarker:
 			for pos, pos_data in popped: self.pos_tracker_to_populate[alignment.is_reverse][pos] = pos_data
 
 		self.most_recent_left_pos = alignment.left_pos
-		if test: print('\tadd %i:start%i' % (alignment.reference_id, alignment.start_pos)) # test
+		self.current_reference_id = alignment.reference_id
+		if DEBUG: print('\tadd %i:start%i' % (alignment.reference_id, alignment.start_pos))
 
 	def get_marked_alignment(self):
 		for raw_alignment in self.alignment_source:
@@ -298,25 +299,18 @@ class DuplicateMarker:
 			if not umi_data.umi_is_good(alignment.umi): continue
 			alignment.is_duplicate = False # not sure how to handle alignments that have already been deduplicated somehow, so just ignore previous annotations
 			self.category_counts['usable alignment'] += 1
-			if test: print('read %i:left%i start%i %s' % (alignment.reference_id, alignment.left_pos, alignment.start_pos, alignment.name)) # test
+			if DEBUG: print('read %i:left%i start%i %s' % (alignment.reference_id, alignment.left_pos, alignment.start_pos, alignment.name))
 
 			# deduplicate eligible positions
 			self.dedup_until(alignment.reference_id, alignment.left_pos)
 
 			# advance the alignment buffer as far as possible
-			while self.alignment_buffer and self.alignment_buffer[0].start_pos in self.pos_tracker_deduplicated[self.alignment_buffer[0].is_reverse]: yield self.pop_buffer()
-
-			# reset the tracker if starting a new chromosome
-			if alignment.reference_id > self.current_reference_id:
-				assert self.tracker_is_empty()
-				self.pos_tracker_deduplicated =  (collections.defaultdict(PosTracker), collections.defaultdict(PosTracker))
-				self.pos_tracker_to_populate =   (collections.OrderedDict(), collections.OrderedDict())
-				self.current_reference_id =      alignment.reference_id
+			while self.alignment_buffer and self.alignment_buffer[0].start_pos in self.pos_tracker_deduplicated[self.alignment_buffer[0].reference_id][self.alignment_buffer[0].is_reverse]: yield self.pop_buffer()
 
 			self.add_alignment(alignment, raw_alignment)
 
-		# flush the buffer
-		self.dedup_until(self.current_reference_id + 1, 0)
+		# flush all buffers at the end of the input
+		self.dedup_until(self.current_reference_id + 1, 0, flush = True)
 		while self.alignment_buffer: yield self.pop_buffer()
 
 		assert self.tracker_is_empty()
