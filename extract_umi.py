@@ -20,10 +20,10 @@ base_counter = [collections.Counter() for i in range(args.umi_length)]
 
 for read, umi in parse_fastq.get_read_umis(args.in_file, args.umi_length, args.before, args.after, [i - 1 for i in args.mask]): # convert mask from 1-indexed to 0-indexed
 	read_counter += 1
-	if len(read) <= args.umi_length + args.before + args.after:
+	if len(read.seq) <= args.umi_length + args.before + args.after:
 		discard_counter += 1
 		continue
-	args.out_file.write(read.format('fastq'))
+	args.out_file.write(parse_fastq.writefq(read))
 	for i in range(args.umi_length - len(args.mask)): base_counter[i][umi[i]] += 1
 args.in_file.close()
 args.out_file.close()
