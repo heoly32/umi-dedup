@@ -153,16 +153,14 @@ def select_num_comp(data, obs, lgamma_obs):
   return min_bic_result
 
 def dedup_cluster(umi_counts):
-  if max(umi_counts.nonzero_values()) == 1: return(umi_counts) # shortcut when there are no duplicates
+  initial_counts = list(umi_counts.nonzero_values())
+  if max(initial_counts) == 1: return(umi_counts) # shortcut when there are no duplicates
   naive_est = umi_counts.n_nonzero()
-  max_est = sum(list(umi_counts.nonzero_values()))
-  counter = collections.Counter(umi_counts.values())
-  data = []
-  obs = []
-  # for count_item, data_item in counter.iteritems(): # PYTHON 2 ALERT
-  for count_item, data_item in counter.items():
-    obs.append(count_item)
-    data.append(data_item)
+  max_est = sum(initial_counts)
+  counter = collections.Counter(initial_counts)
+  counter[0] = len(umi_counts) - naive_est
+  data = list(counter.values())
+  obs = list(counter.keys())
   lgamma_obs = np.array([math.lgamma(x + 1) for x in obs])
   data = np.array(data)
   obs = np.array(obs)
@@ -182,5 +180,5 @@ def dedup_cluster(umi_counts):
       est = max_est
     else:
       est = int(round(est))
-  data_dedup = apportion_counts.apportion_counts(list(umi_counts.nonzero_values()), est)
+  data_dedup = apportion_counts.apportion_counts(initial_counts, est)
   return umi_data.UmiValues(zip(umi_counts.nonzero_keys(), data_dedup))
