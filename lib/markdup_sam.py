@@ -54,7 +54,7 @@ class DuplicateMarker:
 		self.sequence_correction = sequence_correction
 		if algorithm == 'naive':
 			self.umi_dup_function = naive_estimate.deduplicate_counts
-		elif algorithm == 'weighted-average':
+		elif algorithm == 'weighted_average':
 			self.umi_dup_function = weighted_average.deduplicate_counts
 		elif algorithm == 'cluster':
 			self.umi_dup_function = lambda counts: poisson_mixture.dedup_cluster(counts, kmax)
