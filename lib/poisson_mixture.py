@@ -13,6 +13,13 @@ class BICResults:
     self.estimate = estimate
     self.size = k
 
+class PoisMixData:
+  def __init__(self, data, obs):
+    self.data = data
+    self.obs = obs
+    self.lgamma_obs = np.array([math.lgamma(x + 1) for x in obs])
+    self.size = obs.size
+
 # Functions to compute likelihood
 # def dpois(x, mu):
 #   return x*np.log(mu) - mu - math.lgamma(x+1)
@@ -139,10 +146,13 @@ def QN1_algorithm(data, obs, init_param, lgamma_obs):
                                              next_gtilde - current_gtilde)
             #testing if stopping rule is met
             next_lkhd = likelihood(data, obs, next_param, lgamma_obs)
-            if abs(current_lkhd - next_lkhd) < 10**-6:
+            if math.log(abs(current_lkhd - next_lkhd)) < -6 or iter >= 10000:
               break
     # Compute BIC
-    bic = BIC(data, obs, next_param, lgamma_obs)
+    if iter >= 10000:
+      bic = float('inf')
+    else:
+      bic = BIC(data, obs, next_param, lgamma_obs)
     output = BICResults(bic, next_param, K)
     return output
 
