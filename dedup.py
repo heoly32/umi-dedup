@@ -22,8 +22,6 @@ parser_data.add_argument('-u', '--umi_table', action = 'store', type = argparse.
 parser_reporting.add_argument('-s', '--stats', action = 'store_true', help = 'compute additional library stats')
 parser_reporting.add_argument('-q', '--quiet', action = 'store_true', help = 'don\'t show progress updates')
 args = parser.parse_args()
-# if args.algorithm == 'bayes' and args.umi_table is None and args.in_file == '-':
-# 	raise RuntimeError('for the Bayesian algorithm, you must provide a UMI table filename, a BAM filename, or both')
 
 
 in_bam = pysam.Samfile(args.in_file, 'rb')
@@ -39,24 +37,14 @@ bam_header['PG'].append({
 })
 out_bam = pysam.Samfile(args.out_file, 'wb', header = bam_header)
 
-# first pass through the input: get total UMI counts (or use table instead, if provided)
-try:
-	umi_totals = umi_data.read_umi_counts_from_table(args.umi_table, args.truncate_umi)
-	args.umi_table.close()
-except TypeError:
-	umi_totals = None
-
-# second pass: mark duplicates
 dup_marker = markdup_sam.DuplicateMarker(
 	alignments =          in_bam,
-	umi_frequency =       umi_totals,
 	algorithm =           args.algorithm,
 	optical_dist =        args.dist,
 	truncate_umi =        args.truncate_umi,
-	kmax = 	args.kmax,
+	kmax = 	              args.kmax,
 	sequence_correction = args.sequence_correction
 )
-if not args.quiet: progress.reset()
 for alignment in dup_marker:
 	if not (args.remove and alignment.is_duplicate): out_bam.write(alignment)
 	if not args.quiet: progress.update(alignment)
@@ -66,8 +54,6 @@ if not args.quiet: del progress
 
 # report summary statistics
 # alignment counts
-# if args.algorithm == 'bayes' and args.umi_table is None: # would already have reported alignments read
-# 	assert sum(umi_totals.nonzero_values()) == dup_marker.category_counts['usable alignment']
 sys.stderr.write(
 	'%i\talignments read\n%i\tusable alignments read\n\n' %                                                       (dup_marker.category_counts['alignment'], dup_marker.category_counts['usable alignment']) +
 	'%i\tUMI sequence corrections\n' %                                                                            dup_marker.category_counts['sequence correction'] +

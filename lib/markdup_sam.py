@@ -40,15 +40,13 @@ class DuplicateMarker:
 	'''
 	def __init__(self,
 		alignments,
-		umi_frequency =       None,
-		algorithm =           'bayes',
+		algorithm =           'cluster',
 		optical_dist =        optical_duplicates.DEFAULT_DIST,
 		truncate_umi =        None,
 		kmax = 	              poisson_mixture.DEFAULT_KMAX,
 		sequence_correction = None
 	):
 		self.alignments =          alignments
-		self.umi_frequency =       umi_frequency
 		self.optical_dist =        optical_dist
 		self.truncate_umi =        truncate_umi
 		self.sequence_correction = sequence_correction
