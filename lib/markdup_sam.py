@@ -48,6 +48,7 @@ class DuplicateMarker:
 		nthin =               bayes_estimate.DEFAULT_NTHIN,
 		nburn =               bayes_estimate.DEFAULT_NBURN,
 		alpha2 =              bayes_estimate.DEFAULT_ALPHA2,
+		kmax = 	poisson_mixture.DEFAULT_KMAX,
 		prior =               None,
 		filter_counts =       True,
 		sequence_correction = None
@@ -72,7 +73,7 @@ class DuplicateMarker:
 				filter_counts = filter_counts
 			)
 		elif algorithm == 'cluster':
-			self.umi_dup_function = poisson_mixture.dedup_cluster
+			self.umi_dup_function = lambda counts: poisson_mixture.dedup_cluster(counts, kmax)
 		else:
 			raise NotImplementedError
 		self.alignment_buffer = collections.deque()

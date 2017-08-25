@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import copy, collections, argparse, pysam, sys
-from lib import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, markdup_sam, pysam_progress
+from lib import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, markdup_sam, pysam_progress, poisson_mixture
 
 # parse arguments
 parser = argparse.ArgumentParser(description = 'Read a coordinate-sorted BAM file with labeled UMIs and mark or remove duplicates due to PCR or optical cloning, but not duplicates present in the original library. When PCR/optical duplicates are detected, the reads with the highest total base qualities are marked as non-duplicate - note we do not discriminate on MAPQ, or other alignment features, because this would bias against polymorphisms.')
@@ -20,6 +20,7 @@ parser_alg.add_argument('--nburn', action = 'store', type = int, default = bayes
 parser_alg.add_argument('--filter', action = 'store_true', default = True, help = 'remove zero counts before running bayes or uniform-bayes')
 parser_alg.add_argument('--alpha1', action = 'store', type = float, default = bayes_estimate.DEFAULT_ALPHA1, help = 'scaling factor for the empirical prior (only relevant for bayes algorithm)')
 parser_alg.add_argument('--alpha2', action = 'store', type = float, default = bayes_estimate.DEFAULT_ALPHA2, help = 'scaling factor for the prior on the true proportion')
+parser_alg.add_argument('--kmax', action = 'store', type = int, default = poisson_mixture.DEFAULT_KMAX, help = 'maximum number of Poisson clusters allowed')
 parser_perf.add_argument('--truncate_umi', action = 'store', type = int, default = None, help = 'truncate UMI sequences to this length')
 parser_data.add_argument('in_file', action = 'store', nargs = '?', default = '-', help = 'input BAM')
 parser_data.add_argument('out_file', action = 'store', nargs = '?', default = '-', help = 'output BAM')
@@ -74,6 +75,7 @@ dup_marker = markdup_sam.DuplicateMarker(
 	nsamp =               args.nsamp,
 	nthin =               args.nthin,
 	nburn =               args.nburn,
+	kmax = 	args.kmax,
 	prior =               prior,
 	filter_counts =       args.filter,
 	sequence_correction = args.sequence_correction
