@@ -59,10 +59,21 @@ def reevaluate_centers(centroids, clusters, counts):
 def has_converged(centroids, old_centroids):
     return set(centroids) == set(old_centroids)
 
-def find_clusters(graph, counts, k):
+def find_k(counts):
+    list_counts = counts.values()
+    list_counts.sort(reverse = True)
+    succ_diffs = [t - s for s, t in zip(list_counts, list_counts[1:])]
+    if succ_diffs.count(0) == len(succ_diffs):
+        k = len(counts)
+    else:
+        k = min(enumerate(succ_diffs), key = operator.itemgetter(1))[0] + 1
+    return k
+
+def find_clusters(graph, counts):
     # Initialize to k random centers
     umis = graph.keys()
     sorted_counts = sorted(counts, key = lambda x: counts[x], reverse = True)
+    k = find_k(counts)
     old_centroids = sorted_counts[len(counts) - k:]
     centroids = sorted_counts[0:k]
     clusters = {"graph": set(umis)}
