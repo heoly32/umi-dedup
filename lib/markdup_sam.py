@@ -1,5 +1,5 @@
 import collections, copy
-from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, sequence_error, library_stats
+from . import parse_sam, umi_data, optical_duplicates, naive_estimate, sequence_error, library_stats
 
 # Initiate sequence correction functor
 # sequence_correcter = sequence_error.ClusterAndReducer()
@@ -44,12 +44,6 @@ class DuplicateMarker:
 		algorithm =           'bayes',
 		optical_dist =        optical_duplicates.DEFAULT_DIST,
 		truncate_umi =        None,
-		nsamp =               bayes_estimate.DEFAULT_NSAMP,
-		nthin =               bayes_estimate.DEFAULT_NTHIN,
-		nburn =               bayes_estimate.DEFAULT_NBURN,
-		alpha2 =              bayes_estimate.DEFAULT_ALPHA2,
-		prior =               None,
-		filter_counts =       True,
 		sequence_correction = None
 	):
 		self.alignments =          alignments
@@ -59,18 +53,6 @@ class DuplicateMarker:
 		self.sequence_correction = sequence_correction
 		if algorithm == 'naive':
 			self.umi_dup_function = naive_estimate.deduplicate_counts
-		elif algorithm in ('bayes', 'uniform-bayes'):
-			self.umi_dup_function = lambda counts: bayes_estimate.deduplicate_counts(
-				umi_counts =    counts,
-				nsamp =         nsamp,
-				nthin =         nthin,
-				nburn =         nburn,
-				uniform =       (algorithm == 'uniform-bayes'),
-				alpha2 =        alpha2,
-				total_counts =  self.umi_frequency,
-				prior =         prior,
-				filter_counts = filter_counts
-			)
 		else:
 			raise NotImplementedError
 		self.alignment_buffer = collections.deque()
