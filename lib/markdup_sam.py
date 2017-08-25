@@ -1,6 +1,5 @@
-import collections, copy, multiprocessing
-import time
-from . import parse_sam, umi_data, optical_duplicates, naive_estimate, bayes_estimate, poisson_mixture, sequence_error, library_stats
+import collections, copy, multiprocessing, time
+from . import parse_sam, umi_data, optical_duplicates, naive_estimate, weighted_average, poisson_mixture, sequence_error, library_stats
 
 DEBUG = False # debugging mode with detailed progress updates
 QUEUE_LIMIT_PER_WORKER = 10 # maximum number of tasks allowed in the queue to deduplicate, multiplied by number of workers; the queue of completed tasks is unlimited so that the other workers don't stall if one gets a huge task, and this may still fill up the memory somewhat
@@ -27,10 +26,10 @@ class PosTracker:
 def dedup_counts(counts, algorithm, *args, **kwargs):
 	if algorithm == 'naive':
 		return naive_estimate.deduplicate_counts(counts)
-	elif algorithm in ('bayes', 'uniform-bayes'):
-		return bayes_estimate.deduplicate_counts(umi_counts = counts, uniform = (algorithm == 'uniform-bayes'), *args, **kwargs)
+	elif algorithm == 'weighted_average':
+		return weighted_average.deduplicate_counts(counts)
 	elif algorithm == 'cluster':
-		return poisson_mixture.dedup_cluster(counts)
+		return poisson_mixture.dedup_cluster(counts, *args, **kwargs)
 	else:
 		raise NotImplementedError
 

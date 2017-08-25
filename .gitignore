@@ -1,15 +1,5 @@
-dil5_mix[12]_umi_totals*
-*.bam
-*.bai
 *.pyc
 *.ipynb
-*.tsv
-*.csv
-*.txt
-essai.py
-*.R
-.Rhistory
-.RData
 build/*
 lib/*.so
 lib/*.o

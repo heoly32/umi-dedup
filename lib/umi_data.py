@@ -102,15 +102,15 @@ def read_umi_counts_from_table (in_file, truncate = None):
 	if not result: raise RuntimeError('bad format in UMI table')
 	return result
 
-def read_umi_counts_from_reads (in_file, truncate = None): # in_file should be a pysam.Samfile or a Bio.SeqIO.parse in 'fastq' format, or at least contain an Illumina-formatted name in either 'query_name' or 'id'
+def read_umi_counts_from_reads (in_file, truncate = None): # in_file should be a pysam.Samfile or a parse_fastq.Read in 'fastq' format, or at least contain an Illumina-formatted name in either 'query_name' or 'id'
 	umi_totals = None
 	for read in in_file:
 		if hasattr(read, 'is_paired') and read.is_paired and not parse_sam.alignment_is_properly_paired(read): continue
 		try:
 			read_name = read.query_name
 		except AttributeError:
-			read_name = read.id # EAFP; if this isn't found either, AttributeError is still raised
-		umi = parse_sam.get_umi(read_name, truncate)
+			read_name = read.name # EAFP; if this isn't found either, AttributeError is still raised
+		umi = parse_umi(read_name, truncate)
 		if not umi_is_good(umi): continue
 		try:
 			umi_totals[umi] += 1

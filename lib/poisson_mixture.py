@@ -4,7 +4,7 @@ import collections
 from numba import jit
 from . import apportion_counts, umi_data
 
-K_MAX = 10
+DEFAULT_KMAX = 10
 
 # Store results into object
 class BICResults:
@@ -112,7 +112,6 @@ def g_tilde(data, obs, param, lgamma_obs):
   return np.concatenate(next_step)
 
 # Fit algorithm to data----
-@jit
 def QN1_algorithm(data, obs, init_param, lgamma_obs):
     #parameter initialization
     next_param = init_param
@@ -120,6 +119,7 @@ def QN1_algorithm(data, obs, init_param, lgamma_obs):
     next_A =  -np.identity(2*K)
     next_gtilde = g_tilde(data, obs, next_param, lgamma_obs)
     iter = 0
+    underflow = False
     if K == 1:
         next_prob = 1.0
         next_theta = float(np.sum(data * obs))/np.sum(data)
@@ -146,23 +146,27 @@ def QN1_algorithm(data, obs, init_param, lgamma_obs):
                                              next_gtilde - current_gtilde)
             #testing if stopping rule is met
             next_lkhd = likelihood(data, obs, next_param, lgamma_obs)
-            if math.log(abs(current_lkhd - next_lkhd)) < -6 or iter >= 10000:
+            try:
+              if math.log(abs(current_lkhd - next_lkhd)) < -6 or iter >= 10000:
+                break
+            except RuntimeWarning:
+              underflow = True
               break
     # Compute BIC
-    if iter >= 10000:
+    if iter >= 10000 or underflow:
       bic = float('inf')
     else:
       bic = BIC(data, obs, next_param, lgamma_obs)
     output = BICResults(bic, next_param, K)
     return output
 
-def select_num_comp(data, obs, lgamma_obs):
+def select_num_comp(data, obs, lgamma_obs, kmax):
   n = data.size
-  bic_list = [QN1_algorithm(data, obs, (np.array(k*[1.0/k]), np.arange(1, k+1)), lgamma_obs) for k in range(1, min(K_MAX, n) + 1)]
+  bic_list = [QN1_algorithm(data, obs, (np.array(k*[1.0/k]), np.arange(1, k+1)), lgamma_obs) for k in range(1, min(kmax, n) + 1)]
   min_bic_result = min(bic_list, key = lambda p: p.bic)
   return min_bic_result
 
-def dedup_cluster(umi_counts):
+def dedup_cluster(umi_counts, kmax = DEFAULT_KMAX):
   initial_counts = list(umi_counts.nonzero_values())
   if max(initial_counts) == 1: return(umi_counts) # shortcut when there are no duplicates
   naive_est = umi_counts.n_nonzero()
@@ -177,12 +181,16 @@ def dedup_cluster(umi_counts):
   if data.size <= 2:
     est = naive_est
   else:
-    min_bic_result = select_num_comp(data, obs, lgamma_obs)
+    min_bic_result = select_num_comp(data, obs, lgamma_obs, kmax)
     est = 0
     num_mol = np.argsort(min_bic_result.estimate[1])
     mixing_mat = np.exp(mixing_weights(obs, min_bic_result.estimate, lgamma_obs))
     for i in range(data.size):
-      est += np.dot(mixing_mat[i,...], num_mol) * obs[i]
+      if obs[i] == 0:
+        continue
+      index = np.argmax(mixing_mat[i,...])
+      est += num_mol[index] * data[i]
+      # est += np.dot(mixing_mat[i,...], num_mol) * obs[i]
     # There is a clear range within which the value must fall
     if est <= naive_est:
       est = naive_est
