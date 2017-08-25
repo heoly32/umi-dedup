@@ -1,5 +1,45 @@
-import itertools, Bio.SeqIO
+import collections, itertools
 from . import umi_data
+
+Read = collections.namedtuple('Read', ['name', 'seq', 'qualities'])
+
+def readfq(fp): # this is a generator function
+	'''
+	from Readfq by Heng Li, https://github.com/lh3/readfq
+	yields reads as tuples of name, sequence, qualities (all strings)
+	'''
+	last = None # this is a buffer keeping the last unprocessed line
+	while True: # mimic closure; is it a bad idea?
+		if not last: # the first record or a record following a fastq
+			for l in fp: # search for the start of the next record
+				if l[0] in '>@': # fasta/q header line
+					last = l[:-1] # save this line
+					break
+		if not last: break
+		name, seqs, last = last[1:].partition(" ")[0], [], None
+		for l in fp: # read the sequence
+			if l[0] in '@+>':
+				last = l[:-1]
+				break
+			seqs.append(l[:-1])
+		if not last or last[0] != '+': # this is a fasta record
+			yield Read(name, ''.join(seqs), None) # yield a fasta record
+			if not last: break
+		else: # this is a fastq record
+			seq, leng, seqs = ''.join(seqs), 0, []
+			for l in fp: # read the quality
+				seqs.append(l[:-1])
+				leng += len(l) - 1
+				if leng >= len(seq): # have read enough quality
+					last = None
+					yield Read(name, seq, ''.join(seqs)); # yield a fastq record
+					break
+			if last: # reach EOF before reading enough quality
+				yield Read(name, seq, None) # yield a fasta record instead
+				break
+
+def writefq (read):
+	return '@%s\n%s\n+\n%s\n' % (read.name, read.seq, read.qualities)
 
 def get_umi (seq, length, before = 0, mask_pos = []):
 	'''
@@ -20,12 +60,9 @@ def get_umi (seq, length, before = 0, mask_pos = []):
 def add_umi_to_read (read, umi, trim_length = 0):
 	'''
 	add UMI to Illumina-format FASTQ read name
-	read is expected to be a Bio.SeqIO.SeqRecord object
 	optionally also remove a specified number of bases from the beginning of the read (both sequence and qualities)
 	'''
-	
-	labels = read.description.split(' ')
-	assert labels[0] == read.id # this will be important later
+	labels = read.name.split(' ')
 	which_read_name = None
 	for i in range(2):
 		if labels[i].count(':') in (4, 6): # Illumina format
@@ -36,15 +73,12 @@ def add_umi_to_read (read, umi, trim_length = 0):
 	part1 = labels[which_read_name].partition('#')
 	part2 = part1[0].partition('/')
 	labels[which_read_name] = part2[0] + ':' + umi + ''.join(part2[1:] + part1[1:])
-	read.description = ' '.join(labels)
-	read.id = labels[0] # if this is the part of the name that changed, read.id must also change or the Bio.SeqIO.parse object will give bad output
+	name = ' '.join(labels)
 	
-	qualities = read.letter_annotations['phred_quality']
-	read.letter_annotations = {} # letter annotations must be emptied before changing sequence
-	read.seq = read.seq[trim_length:]
-	read.letter_annotations['phred_quality'] = qualities[trim_length:]
+	seq = read.seq[trim_length:]
+	qualities = read.qualities[trim_length:]
 	
-	return read
+	return Read(name, seq, qualities)
 
 def get_read_umis (
 	in_file,
@@ -55,14 +89,14 @@ def get_read_umis (
 	relabel =  True
 ):
 	'''
-	returns a generator of pairs of Bio.SeqIO.SeqRecord objects and UMIs extracted from them
+	returns a generator of pairs of Read instances and UMIs extracted from them
 	moves UMI from read sequence to read name unless disabled
 	defensively sorts mask_pos just in case you're naughty
 	'''
 	trim_length = before + umi_length + after
 	mask_pos = sorted(mask_pos)
 	if len(mask_pos) > 0 and mask_pos[-1] > umi_length: raise RuntimeError('UMI is only %i bases; can\'t mask position %i' % (umi_length, mask_pos[-1]))
-	for read in Bio.SeqIO.parse(in_file, 'fastq'):
+	for read in readfq(in_file):
 		umi = get_umi(read.seq, umi_length, before, mask_pos)
 		yield (
 			(add_umi_to_read(read, umi, trim_length) if relabel else read),
@@ -90,7 +124,7 @@ def get_read_pair_umis (
 	relabel =        True
 ):
 	'''
-	returns a generator of pairs of pairs of Bio.SeqIO.SeqRecord objects and their UMIs
+	returns a generator of pairs of pairs of Read objects and their UMIs
 	moves UMIs from read sequences to read names unless disabled
 	gives both members of the pair the same UMI field, a combination of both UMIs with a separator between them
 	or if only one read has the UMI, use 0 as the other one's length, and the field will just contain the single UMI with no separator

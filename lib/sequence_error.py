@@ -1,5 +1,4 @@
 import collections, operator
-from . import kmeans
 
 class ClusterAndReducer:
     '''
@@ -20,6 +19,11 @@ class ClusterAndReducer:
     # Utility functions #
     ############
 
+    def hamming(self, umi1, umi2):
+        assert len(umi1) == len(umi2)
+        ne = operator.ne
+        return sum(map(ne, umi1, umi2))
+
     def breadth_first_search(self, node, adj_list):
         searched = set()
         found = set()
@@ -36,32 +40,6 @@ class ClusterAndReducer:
 
         return found
 
-    # def breadth_first_search(self, node, adj_list):
-    #     # Try to use real queues instead of sets
-    #     #print node
-    #     searched = set()
-    #     found = set()
-    #     queue = collections.deque()
-    #     queue.append(node)
-    #     found.add(node)
-
-    #     #print adj_list
-    #     while queue:
-    #         node = queue.popleft()
-    #         if node not in searched:
-    #             searched.add(node)
-    #             queue.extend(adj_list[node] - searched)
-    #         # print node
-    #         # print adj_list[node]
-    #         # found.update(adj_list[node])
-    #         # queue.append(adj_list[node])
-    #         # searched.update((node,))
-    #         # print adj_list[node] - searched
-    #         # queue.extend(list(adj_list[node] - searched))
-    #         #print "*****"
-
-    #     return found
-
     ##################
     # Compute graph methods #
     ##################
@@ -71,14 +49,8 @@ class ClusterAndReducer:
         and where the counts of the first umi is > (2 * second umi counts)-1'''
 
         return {umi: set([umi2 for umi2 in umis if
-                      kmeans.hamming(umi, umi2) == threshold and
+                      self.hamming(umi, umi2) == threshold and
                       counts[umi] >= (counts[umi2] * 2) - 1]) for umi in umis}
-
-    def _get_adj_list_kmeans_(self, umis, counts, threshold):
-        ''' identify all umis within the hamming distance threshold'''
-
-        return {umi: set([umi2 for umi2 in umis if
-                      kmeans.hamming(umi, umi2) == threshold]) for umi in umis}
 
     #########################
     # Post-process components methods   #
@@ -97,27 +69,6 @@ class ClusterAndReducer:
                         components[components.index(parent_clusters[i])].remove(umi)
 
         return components
-
-    def _post_process_components_kmeans_(self, umis, components, adj_list, counts):
-        # RUN k-means algorithm
-        # to identify possible subclusters
-        new_components = []
-        for cluster in components:
-            if len(cluster) == 1:
-                new_components.append(cluster)
-            else:
-                # restrict both counts and adj_list to the UMIs that appear in cluster
-                counts_restricted = {umi: counts[umi] for umi in cluster}
-                adj_list_restricted = {umi: adj_list[umi] for umi in cluster}
-                if max(counts_restricted.values()) - min(counts_restricted.values()) < 1 and (len(cluster) - 1)/(4 * len(list(counts_restricted.keys())[1])) < 0.001:
-                    new_components.append(cluster)
-                else:
-                    new_clusters = kmeans.find_clusters(adj_list_restricted,
-                                                        counts_restricted)
-                    for new_cluster in new_clusters.values():
-                        new_components.append(new_cluster)
-
-        return new_components
 
     ##########################
     # Methods common to both approaches #
@@ -160,16 +111,18 @@ class ClusterAndReducer:
         return reads
 
     # Initialization step
-    def __init__(self, cluster_method="kmeans"):
+    def __init__(self, cluster_method="directional"):
         ''' select the required class methods for the cluster_method'''
 
         if cluster_method == "directional":
             self.get_adj_list = self._get_adj_list_directional_
             self.post_process_components = self._post_process_components_directional_
 
-        elif cluster_method == "kmeans":
-            self.get_adj_list = self._get_adj_list_kmeans_
-            self.post_process_components = self._post_process_components_kmeans_
+        # elif cluster_method == "kmeans":
+        #     self.get_adj_list = self._get_adj_list_kmeans_
+        #     self.post_process_components = self._post_process_components_kmeans_
+        else:
+            raise NotImplementedError
 
     # Call method
     def __call__(self, bundle, threshold = 1):
