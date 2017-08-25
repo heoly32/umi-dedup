@@ -1,5 +1,5 @@
 import collections, copy
-from . import parse_sam, umi_data, optical_duplicates, naive_estimate, sequence_error, library_stats
+from . import parse_sam, umi_data, optical_duplicates, naive_estimate, poisson_mixture, sequence_error, library_stats
 
 # Initiate sequence correction functor
 # sequence_correcter = sequence_error.ClusterAndReducer()
@@ -44,6 +44,7 @@ class DuplicateMarker:
 		algorithm =           'bayes',
 		optical_dist =        optical_duplicates.DEFAULT_DIST,
 		truncate_umi =        None,
+		kmax = 	              poisson_mixture.DEFAULT_KMAX,
 		sequence_correction = None
 	):
 		self.alignments =          alignments
@@ -53,6 +54,8 @@ class DuplicateMarker:
 		self.sequence_correction = sequence_correction
 		if algorithm == 'naive':
 			self.umi_dup_function = naive_estimate.deduplicate_counts
+		elif algorithm == 'cluster':
+			self.umi_dup_function = lambda counts: poisson_mixture.dedup_cluster(counts, kmax)
 		else:
 			raise NotImplementedError
 		self.alignment_buffer = collections.deque()
