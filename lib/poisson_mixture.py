@@ -112,7 +112,6 @@ def g_tilde(data, obs, param, lgamma_obs):
   return np.concatenate(next_step)
 
 # Fit algorithm to data----
-@jit
 def QN1_algorithm(data, obs, init_param, lgamma_obs):
     #parameter initialization
     next_param = init_param
@@ -120,6 +119,7 @@ def QN1_algorithm(data, obs, init_param, lgamma_obs):
     next_A =  -np.identity(2*K)
     next_gtilde = g_tilde(data, obs, next_param, lgamma_obs)
     iter = 0
+    underflow = False
     if K == 1:
         next_prob = 1.0
         next_theta = float(np.sum(data * obs))/np.sum(data)
@@ -146,10 +146,14 @@ def QN1_algorithm(data, obs, init_param, lgamma_obs):
                                              next_gtilde - current_gtilde)
             #testing if stopping rule is met
             next_lkhd = likelihood(data, obs, next_param, lgamma_obs)
-            if math.log(abs(current_lkhd - next_lkhd)) < -6 or iter >= 10000:
+            try:
+              if math.log(abs(current_lkhd - next_lkhd)) < -6 or iter >= 10000:
+                break
+            except RuntimeWarning:
+              underflow = True
               break
     # Compute BIC
-    if iter >= 10000:
+    if iter >= 10000 or underflow:
       bic = float('inf')
     else:
       bic = BIC(data, obs, next_param, lgamma_obs)
