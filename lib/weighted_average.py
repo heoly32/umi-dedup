@@ -1,6 +1,8 @@
 from __future__ import division
 from . import umi_data, apportion_counts
 
+# this approach was proposed by Fumiaki Katagiri
+
 def estimate_count (umi_counts):
 	c0 = len(umi_counts) - umi_counts.n_nonzero()
 	c1 = total = 0
