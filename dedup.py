@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-import copy, collections, argparse, pysam, sys
-from lib import parse_sam, umi_data, optical_duplicates, naive_estimate, weighted_average, poisson_mixture, markdup_sam, pysam_progress
+import argparse, pysam, sys
+from lib import parse_sam, umi_data, optical_duplicates, poisson_mixture, markdup_sam, pysam_progress
 
 # parse arguments
 parser = argparse.ArgumentParser(description = 'Read a coordinate-sorted BAM file with labeled UMIs and mark or remove duplicates due to PCR or optical cloning, but not duplicates present in the original library. When PCR/optical duplicates are detected, the reads with the highest total base qualities are marked as non-duplicate - note we do not discriminate on MAPQ, or other alignment features, because this would bias against polymorphisms.')
