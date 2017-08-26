@@ -12,19 +12,22 @@ first_file = True
 
 # parse input
 for log_file in args.log_files:
-	i = 0
-	for line in open(log_file):
-		if '\t' in line:
-			value, field = line.rstrip().split('\t')
-			if first_file:
-				assert len(fields) == len(values) == i
-				fields += [field]
-				values += [[value]]
-			else:
-				assert fields[i] == field
-				values[i] += [value]
-			i += 1
-	first_file = False
+	try:
+		i = 0
+		for line in open(log_file):
+			if '\t' in line:
+				value, field = line.rstrip().split('\t')
+				if first_file:
+					assert len(fields) == len(values) == i
+					fields += [field]
+					values += [[value]]
+				else:
+					assert fields[i] == field
+					values[i] += [value]
+				i += 1
+		first_file = False
+	except (ValueError, AssertionError):
+		pass # will catch these later
 
 # write output
 print('\t'.join(['library'] + fields))
@@ -32,6 +35,5 @@ for i in range(len(args.log_files)):
 	try:
 		print('\t'.join([args.log_files[i]] + [value_list[i] for value_list in values]))
 	except IndexError:
-		raise RuntimeWarning('bad format in %s' % args.log_files[i])
-
+		print('bad format in %s' % args.log_files[i], file = sys.stderr)
 
