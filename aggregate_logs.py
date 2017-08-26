@@ -32,6 +32,6 @@ for i in range(len(args.log_files)):
 	try:
 		print('\t'.join([args.log_files[i]] + [value_list[i] for value_list in values]))
 	except IndexError:
-		raise RuntimeWarning('bad format in %' % args.log_files[i])
+		raise RuntimeWarning('bad format in %s' % args.log_files[i])
 
 
