@@ -1,5 +1,5 @@
 import collections, copy
-from . import parse_sam, umi_data, optical_duplicates, naive_estimate, weighted_average, poisson_mixture, sequence_error, library_stats
+from . import parse_sam, umi_data, optical_duplicates, naive_estimate, weighted_average, weighted_average2, poisson_mixture, sequence_error, library_stats
 
 # Initiate sequence correction functor
 # sequence_correcter = sequence_error.ClusterAndReducer()
@@ -54,6 +54,8 @@ class DuplicateMarker:
 			self.umi_dup_function = naive_estimate.deduplicate_counts
 		elif algorithm == 'weighted_average':
 			self.umi_dup_function = weighted_average.deduplicate_counts
+		elif algorithm == 'weighted_average2':
+			self.umi_dup_function = weighted_average2.deduplicate_counts
 		elif algorithm == 'cluster':
 			self.umi_dup_function = lambda counts: poisson_mixture.dedup_cluster(counts, kmax)
 		else:
