@@ -1,5 +1,6 @@
 import collections, copy, multiprocessing, time
-from . import parse_sam, umi_data, optical_duplicates, naive_estimate, weighted_average, poisson_mixture, sequence_error, library_stats
+from . import parse_sam, umi_data, optical_duplicates, naive_estimate, weighted_average, weighted_average2, poisson_mixture, sequence_error, library_stats
+
 
 DEBUG = False # debugging mode with detailed progress updates
 QUEUE_LIMIT_PER_WORKER = 10 # maximum number of tasks allowed in the queue to deduplicate, multiplied by number of workers; the queue of completed tasks is unlimited so that the other workers don't stall if one gets a huge task, and this may still fill up the memory somewhat
@@ -28,6 +29,8 @@ def dedup_counts(counts, algorithm, *args, **kwargs):
 		return naive_estimate.deduplicate_counts(counts)
 	elif algorithm == 'weighted_average':
 		return weighted_average.deduplicate_counts(counts)
+	elif algorithm == 'weighted_average2':
+		return weighted_average2.deduplicate_counts(counts)
 	elif algorithm == 'cluster':
 		return poisson_mixture.dedup_cluster(counts, *args, **kwargs)
 	else:
