@@ -72,7 +72,8 @@ class DuplicateMarker:
 
 		# trackers for summary statistics
 		self.category_counts = collections.Counter()
-		self.pos_counts = {'before': [], 'after': []} # position hit counts before or afterdeduplication
+		self.pos_counts = {'before': [], 'after': []} # position hit counts before or after deduplication
+		self.pos_entropies = {'before': [], 'after': []} # position entropies before or after deduplication
 
 
 	def __iter__(self):
@@ -123,15 +124,18 @@ class DuplicateMarker:
 
 					self.category_counts['UMI rescued'] -= bool(umi_nondup_counts) # count the first read at this position as distinct
 					self.category_counts['distinct'] += bool(umi_nondup_counts)
-					self.pos_counts['before'].append(umi_counts.values())
-					self.pos_counts['after'].append(umi_nondup_counts.values())
+					self.pos_counts['before'].append(sum(umi_counts.values()))
+					self.pos_counts['after'].append(sum(umi_nondup_counts.values()))
+					self.pos_entropies['before'].append(library_stats.entropy(umi_counts.values()))
+					self.pos_entropies['after'].append(library_stats.entropy(umi_nondup_counts.values()))
 
 				if alignments_to_dedup: # false if they had all been deduplicated already
 					alignment_categories = {} # key = alignment query_name, value = which category it is (from DUP_CATEGORIES or otherwise)
 					alignments_by_umi = collections.defaultdict(list)
 					for this_alignment in alignments_to_dedup: alignments_by_umi[umi_data.get_umi(this_alignment)] += [this_alignment]
 					count_by_umi = umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.items()])
-					self.pos_counts['before'].append(count_by_umi.nonzero_values())
+					self.pos_counts['before'].append(sum(count_by_umi.nonzero_values()))
+					self.pos_entropies['before'].append(library_stats.entropy(count_by_umi.nonzero_values()))
 
 					# first pass: mark optical duplicates
 					if self.optical_dist != 0:
@@ -148,7 +152,8 @@ class DuplicateMarker:
 
 					# second pass: mark PCR duplicates
 					dedup_counts = self.umi_dup_function(count_by_umi)
-					self.pos_counts['after'].append(dedup_counts.nonzero_values())
+					self.pos_counts['after'].append(sum(dedup_counts.nonzero_values()))
+					self.pos_entropies['after'].append(library_stats.entropy(dedup_counts.nonzero_values()))
 					if self.sequence_correction is not None:
 						pre_correction_count = sum(map(len, alignments_by_umi.values()))
 						alignments_with_new_umi = self.sequence_correcter(alignments_by_umi)
@@ -244,10 +249,10 @@ class DuplicateMarker:
 		assert self.category_counts['usable alignment'] == sum(self.category_counts[x] for x in ['distinct', 'optical duplicate', 'PCR duplicate', 'UMI rescued', 'algorithm rescued'])
 
 	def get_mean_pos_entropy(self, which): # which: 'before' or 'after' deduplication
-		return library_stats.mean(library_stats.entropy(pos) for pos in self.pos_counts[which])
+		return library_stats.mean(self.pos_entropies[which])
 
 	def get_library_entropy(self, which): # which: 'before' or 'after' deduplication
-		return library_stats.entropy(map(sum, self.pos_counts[which]))
+		return library_stats.entropy(self.pos_counts[which])
 
 	def estimate_library_size(self):
 		return library_stats.estimate_library_size(self.category_counts['distinct'] + self.category_counts['UMI rescued'] + self.category_counts['algorithm rescued'], self.category_counts['usable alignment'])

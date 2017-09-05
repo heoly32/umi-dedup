@@ -11,6 +11,7 @@ def mean(x):
 	return total / n
 
 def entropy (x):
+	x = list(x)
 	x_sum = sum(x)
 	p = (x_i / x_sum for x_i in x)
 	return - sum(p_i * math.log(p_i) for p_i in p if p_i != 0)
