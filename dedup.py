@@ -2,9 +2,11 @@
 
 import argparse, pysam, sys
 from lib import parse_sam, umi_data, optical_duplicates, poisson_mixture, markdup_sam, pysam_progress
+from lib.version import VERSION
 
 # parse arguments
 parser = argparse.ArgumentParser(description = 'Read a coordinate-sorted BAM file with labeled UMIs and mark or remove duplicates due to PCR or optical cloning, but not duplicates present in the original library. When PCR/optical duplicates are detected, the reads with the highest total base qualities are marked as non-duplicate - note we do not discriminate on MAPQ, or other alignment features, because this would bias against polymorphisms.')
+parser.add_argument('--version', action = 'version', version = VERSION)
 parser_data = parser.add_argument_group('data files')
 parser_format = parser.add_argument_group('format')
 parser_alg = parser.add_argument_group('algorithm')
@@ -32,7 +34,7 @@ bam_header = in_bam.header
 bam_header['PG'].append({
 	'ID': 'umi-bayes',
 	'PN': 'umi-bayes',
-	'VN': 'devel',
+	'VN': VERSION,
 	'CL': ' '.join(sys.argv)
 })
 out_bam = pysam.Samfile(args.out_file, 'wb', header = bam_header)

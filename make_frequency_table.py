@@ -2,9 +2,11 @@
 
 import collections, itertools, argparse, sys, Bio.SeqIO, pysam
 from lib import umi_data
+from lib.version import VERSION
 
 # parse arguments
 parser = argparse.ArgumentParser(description = 'Read a BAM or FASTQ file and generate a table containing the number of times each UMI was observed.')
+parser.add_argument('--version', action = 'version', version = VERSION)
 parser_data = parser.add_argument_group('data files')
 parser_format = parser.add_argument_group('format')
 parser_perf = parser.add_argument_group('performance testing')

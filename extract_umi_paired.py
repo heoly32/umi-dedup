@@ -2,9 +2,11 @@
 
 import argparse, sys, collections
 from lib import parse_fastq
+from lib.version import VERSION
 
 # parse arguments
 parser = argparse.ArgumentParser(description = 'Read a pair of FASTQ files containing UMIs prepended to alignable sequences, and output the same files with the UMIs moved into the read names. Give both reads in a pair the same UMI label, combined from both UMIs if there are two. Report the base frequencies.')
+parser.add_argument('--version', action = 'version', version = VERSION)
 parser_data = parser.add_argument_group('data files')
 parser_umi = parser.add_argument_group('UMI format')
 parser_umi.add_argument('umi_length1', action = 'store', type = int, help = 'length of UMI sequence in read 1 (these bases become the UMI label)')

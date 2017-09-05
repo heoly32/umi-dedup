@@ -1,8 +1,10 @@
 #! /usr/bin/env python3
 
 import sys, argparse
+from lib.version import VERSION
 
 parser = argparse.ArgumentParser(description = 'given a list of UMI-Bayes log files, aggregate the numbers into one table\nexpects they all have the same fields in the same order')
+parser.add_argument('--version', action = 'version', version = VERSION)
 parser.add_argument('log_files', nargs = '*')
 args = parser.parse_args()
 
