@@ -1,8 +1,8 @@
-# UMI-Bayes
+# UMI-dedup
 
 ## Dependencies
 
-UMI-Bayes is tested mainly in Python 3 and not guaranteed to work in Python 2. It requires the Python modules `numpy`, `numba`, and `pysam`.
+UMI-dedup is tested mainly in Python 3 and not guaranteed to work in Python 2. It requires the Python modules `numpy`, `numba`, and `pysam`.
 
 <!-- ## Installation
 

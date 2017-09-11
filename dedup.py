@@ -32,8 +32,8 @@ if in_bam.header['HD'].get('SO') != 'coordinate': raise RuntimeError('input file
 # create output file with modified header
 bam_header = in_bam.header
 bam_header['PG'].append({
-	'ID': 'umi-bayes',
-	'PN': 'umi-bayes',
+	'ID': 'umi-dedup',
+	'PN': 'umi-dedup',
 	'VN': VERSION,
 	'CL': ' '.join(sys.argv)
 })
