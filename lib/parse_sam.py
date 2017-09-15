@@ -1,5 +1,7 @@
 import collections, warnings, copy, pysam
 
+MAX_READ_LENGTH = 200 # maximum expected read length, to know when you're beyond soft-clipping range (set this high to be cautious)
+
 def alignment_is_good (alignment):
 	return not (alignment.is_unmapped or alignment.is_secondary or alignment.is_supplementary) # only count primary alignments, and discard unmapped reads since it's too expensive (and useless?) to find their duplicates
 
@@ -20,8 +22,8 @@ def alignment_is_properly_paired (alignment): # return True if pair is in expect
 		)
 	)
 
-def get_start_pos (alignment): # alignment start position in 0-based counting
-	return alignment.reference_end - 1 if alignment.is_reverse else alignment.reference_start
+def get_start_pos (alignment): # alignment start position in 0-based counting; do some arithmetic to ignore soft-clipping
+	return alignment.reference_end + (alignment.query_length - alignment.query_alignment_end) - 1 if alignment.is_reverse else alignment.reference_start - alignment.query_alignment_start
 
 def get_mate_start_pos (alignment): # paired alignment's start position in 0-based counting (returns None if unpaired)
 	if not alignment_is_properly_paired(alignment): return None

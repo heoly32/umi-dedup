@@ -229,7 +229,7 @@ class DuplicateMarker:
 			# advance the buffer
 			while self.alignment_buffer and (
 				self.current_reference_id < alignment.reference_id or # new chromosome
-				parse_sam.get_start_pos(self.alignment_buffer[0]) < alignment.reference_start # oldest buffer member is now guaranteed not to get any more hits at its position
+				parse_sam.get_start_pos(self.alignment_buffer[0]) + parse_sam.MAX_READ_LENGTH < alignment.reference_start # oldest buffer member is now guaranteed not to get any more hits at its position (allow space in between for soft-clipped alignments with the same non-clipped start)
 			): yield self.pop_buffer()
 			if alignment.reference_id > self.current_reference_id: # clear the tracker
 				assert self.tracker_is_empty()
