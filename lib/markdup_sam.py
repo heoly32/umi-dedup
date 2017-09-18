@@ -136,8 +136,30 @@ class DuplicateMarker:
 					count_by_umi = umi_data.UmiValues([(umi, len(hits)) for umi, hits in alignments_by_umi.items()])
 					self.pos_counts['before'].append(sum(count_by_umi.nonzero_values()))
 					self.pos_entropies['before'].append(library_stats.entropy(count_by_umi.nonzero_values()))
-
-					# first pass: mark optical duplicates
+					
+					# first pass: correct UMI sequences
+					if self.sequence_correction is not None:
+						pre_correction_count = sum(map(len, alignments_by_umi.values()))
+						alignments_with_new_umi = self.sequence_correcter(alignments_by_umi)
+						try:
+							for alignment, umi in alignments_with_new_umi:
+								alignments_by_umi[umi].append(alignment)
+								self.category_counts['sequence correction'] += 1
+								try:
+									  del alignments_by_umi[umi_data.get_umi(alignment)]
+								except KeyError:
+									  pass
+								umi_data.set_umi(alignment, umi)
+						except TypeError:
+							pass
+						post_correction_count = sum(map(len, alignments_by_umi.values()))
+						assert pre_correction_count == post_correction_count
+						# except AssertionError:
+						# 	print pre_correction_dict
+						# 	print {umi: len(hits) for umi, hits in alignments_by_umi.items()}
+						# 	print "\n* * * * *\n"
+					
+					# second pass: mark optical duplicates
 					if self.optical_dist != 0:
 						for opt_dups in optical_duplicates.get_optical_duplicates(alignments_to_dedup, self.optical_dist):
 							for dup_alignment in umi_data.mark_duplicates(opt_dups, len(opt_dups) - 1):
@@ -149,31 +171,12 @@ class DuplicateMarker:
 									count_by_umi[dup_umi] -= 1
 									alignment_categories[dup_alignment.query_name] = 'optical duplicate'
 									self.category_counts['optical duplicate'] += 1
-
-					# second pass: mark PCR duplicates
+					
+					# third pass: mark PCR duplicates
 					dedup_counts = self.umi_dup_function(count_by_umi)
 					self.pos_counts['after'].append(sum(dedup_counts.nonzero_values()))
 					self.pos_entropies['after'].append(library_stats.entropy(dedup_counts.nonzero_values()))
-					if self.sequence_correction is not None:
-						pre_correction_count = sum(map(len, alignments_by_umi.values()))
-						alignments_with_new_umi = self.sequence_correcter(alignments_by_umi)
-						try:
-							for alignment, umi in alignments_with_new_umi:
-								alignments_by_umi[umi].append(alignment)
-								self.category_counts['sequence correction'] += 1
-								try:
-								    del alignments_by_umi[umi_data.get_umi(alignment)]
-								except KeyError:
-								    pass
-								umi_data.set_umi(alignment, umi)
-						except TypeError:
-							pass
-						post_correction_count = sum(map(len, alignments_by_umi.values()))
-						assert pre_correction_count == post_correction_count
-						# except AssertionError:
-						# 	print pre_correction_dict
-						# 	print {umi: len(hits) for umi, hits in alignments_by_umi.items()}
-						# 	print "\n* * * * *\n"
+					
 					for umi, alignments_with_this_umi in alignments_by_umi.items():
 						dedup_count = dedup_counts[umi]
 						assert alignments_with_this_umi and dedup_count
