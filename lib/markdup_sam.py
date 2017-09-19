@@ -142,14 +142,17 @@ class DuplicateMarker:
 						pre_correction_count = sum(map(len, alignments_by_umi.values()))
 						alignments_with_new_umi = self.sequence_correcter(alignments_by_umi)
 						try:
-							for relabeled_alignment, umi in alignments_with_new_umi:
-								alignments_by_umi[umi].append(relabeled_alignment)
+							for relabeled_alignment, new_umi in alignments_with_new_umi:
+								old_umi = umi_data.get_umi(relabeled_alignment)
+								alignments_by_umi[new_umi].append(relabeled_alignment)
+								count_by_umi[new_umi] += 1
+								count_by_umi[old_umi] -= 1
 								self.category_counts['sequence correction'] += 1
 								try:
-									  del alignments_by_umi[umi_data.get_umi(relabeled_alignment)]
+									  del alignments_by_umi[old_umi]
 								except KeyError:
 									  pass
-								umi_data.set_umi(relabeled_alignment, umi)
+								umi_data.set_umi(relabeled_alignment, new_umi)
 						except TypeError:
 							pass
 						post_correction_count = sum(map(len, alignments_by_umi.values()))
